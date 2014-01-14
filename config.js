@@ -23,13 +23,13 @@ setParams({
             False for curved edges, true for straight edges
             this setting can't be changed from the User Interface
         */
-    edgeWidthFactor : 1,
+    edgeWidthFactor : 15,
         /*
             Change this parameter for wider or narrower edges
             this setting can't be changed from the User Interface
         */
-    minEdgeWidth : 1,
-    maxEdgeWidth : 50,
+    minEdgeWidth : 0.2,
+    maxEdgeWidth : 1,
     textDisplayThreshold: 9,
     nodeSizeFactor : 1,
         /*
