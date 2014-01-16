@@ -21,7 +21,8 @@ var GexfJS = {
         centreX : 400,
         centreY : 350,
         activeNode : -1,
-        currentNode : -1
+        currentNode : -1,
+	activeEdges: {}
     },
     oldParams : {},
     minZoom : -3,
@@ -187,6 +188,20 @@ function replaceURLWithHyperlinks(text) {
     return text;
 }
 
+function displayPath(_eid){
+	GexfJS.params.activeEdges={};
+	var _e = GexfJS.graph.edgeLookup[_eid];
+	var _pathList = _e.path;
+	for (var i in _pathList){
+		var _elist=GexfJS.path_highlights[_pathList[i]];
+		for (var target_id in _elist){
+			//var target_edge=GexfJS.graph.edgeLookup[target_id];
+	                GexfJS.params.activeEdges[target_id]=true;
+		}
+	}
+	GexfJS.params.path_active = !jQuery.isEmptyObject(GexfJS.params.activeEdges);
+}
+
 function displayNode(_nodeIndex, _recentre) {
     GexfJS.params.currentNode = _nodeIndex;
     if (_nodeIndex != -1) {
@@ -213,7 +228,7 @@ function displayNode(_nodeIndex, _recentre) {
             var _e = GexfJS.graph.edgeList[i]
             if ( _e.target == _nodeIndex ) {
                 var _n = GexfJS.graph.nodeList[_e.source];
-                _str += '<li><div class="smallpill" style="background: ' + _n.color.base +'"></div><a href="#" onmouseover="GexfJS.params.activeNode = ' + _e.source + '" onclick="displayNode(' + _e.source + ', true); return false;">' + _n.label + '</a>' + ( GexfJS.params.showEdgeWeight && _e.weight ? ' [' + _e.weight + ']' : '') + '</li>';
+                _str += '<li><div class="smallpill" style="background: ' + _n.color.base +'"></div><a href="#" onmouseover="GexfJS.params.activeNode = ' + _e.source + '" onclick="displayNode(' + _e.source + ', true); return false;">' + _n.label + '</a>' + ( GexfJS.params.showEdgeWeight && _e.weight ? '<a href="#" onclick="displayPath('+_e.id+'); return false;">'+' [' + _e.weight + ']</a>' : '') + '</li>';
             }
         }
         if (GexfJS.graph.directed) _str += '</ul><h4>' + strLang("outLinks") + '</h4><ul>';
@@ -221,7 +236,7 @@ function displayNode(_nodeIndex, _recentre) {
             var _e = GexfJS.graph.edgeList[i]
             if ( _e.source == _nodeIndex ) {
                 var _n = GexfJS.graph.nodeList[_e.target];
-                _str += '<li><div class="smallpill" style="background: ' + _n.color.base +'"></div><a href="#" onmouseover="GexfJS.params.activeNode = ' + _e.target + '" onclick="displayNode(' + _e.target + ', true); return false;">' + _n.label + '</a>' + ( GexfJS.params.showEdgeWeight && _e.weight ? ' [' + _e.weight + ']' : '') + '</li>';
+                _str += '<li><div class="smallpill" style="background: ' + _n.color.base +'"></div><a href="#" onmouseover="GexfJS.params.activeNode = ' + _e.target + '" onclick="displayNode(' + _e.target + ', true); return false;">' + _n.label + '</a>' + ( GexfJS.params.showEdgeWeight && _e.weight ? '<a href="#" onclick="displayPath('+_e.id+'); return false;">'+' [' + _e.weight + ']</a>' : '') + '</li>';
             }
         }
         _str += '</ul><p></p>';
@@ -288,6 +303,10 @@ function endMove(evt) {
 function onGraphClick(evt) {
     if (!GexfJS.mouseHasMoved) {
         displayNode(GexfJS.params.activeNode);
+    	if (GexfJS.params.activeNode == -1){ 
+		GexfJS.params.activeEdges={};
+		GexfJS.params.path_active=false;
+    	}
     }
     endMove();
 }
@@ -418,7 +437,8 @@ function loadGraph() {
                 nodeList : [],
                 nodeIndexById : [],
                 nodeIndexByLabel : [],
-                edgeList : []
+                edgeList : [],
+		edgeLookup : {}
             }
             var _xmin = 1e9, _xmax = -1e9, _ymin = 1e9, _ymax = -1e9; _marge = 30;
             $(_nodes).each(function() {
@@ -486,7 +506,8 @@ function loadGraph() {
                 GexfJS.ctxMini.closePath();
                 GexfJS.ctxMini.fill();
             });
-            
+            //used in combination with pathAttr, path_highlights links the replicon id to edges
+            GexfJS.path_highlights={};
             $(_edges).each(function() {
                 var _e = $(this),
                     _sid = _e.attr("source"),
@@ -494,7 +515,19 @@ function loadGraph() {
                     _tid = _e.attr("target"),
                     _tix = GexfJS.graph.nodeIndexById.indexOf(_tid);
                     _w = _e.find('attvalue[for="weight"]').attr('value') || _e.attr('weight');
+                    _pattr=_e.find('attvalue[for="'+GexfJS.params.pathAttr+'"]').attr('value'),
+                    _p = ( _pattr ? _pattr.split(/[ ,]+/) : _e.attr("path"));
                     _col = _e.find("viz\\:color,color");
+                    _eid = _e.attr("id");
+                
+                    
+                $(_p).each(function(i, _path) {
+			if (!(_path in GexfJS.path_highlights)){
+			    GexfJS.path_highlights[_path]={}
+			}
+			GexfJS.path_highlights[_path][_eid] = true;
+		});
+
                 if (_col.length) {
                     var _r = _col.attr("r"),
                         _g = _col.attr("g"),
@@ -517,8 +550,11 @@ function loadGraph() {
                     target : _tix,
                     width : Math.max( GexfJS.params.minEdgeWidth, Math.min( GexfJS.params.maxEdgeWidth, ( _w || 1 ) ) ) * _echelle,
                     weight : parseFloat(_w || 0),
-                    color : "rgba(" + _r + "," + _g + "," + _b + ",.7)"
+                    color : "rgba(" + _r + "," + _g + "," + _b + ",.7)",
+                    path : _p,
+                    id : _eid
                 });
+                GexfJS.graph.edgeLookup[_eid]=GexfJS.graph.edgeList[GexfJS.graph.edgeList.length-1];
             });
             
             GexfJS.imageMini = GexfJS.ctxMini.getImageData(0, 0, GexfJS.overviewWidth, GexfJS.overviewHeight);
@@ -647,6 +683,11 @@ function traceMap() {
             _tix = _d.target,
             _ds = GexfJS.graph.nodeList[_six],
             _dt = GexfJS.graph.nodeList[_tix];
+	var _eid = _d.id;
+        var active_edge = (_eid in GexfJS.params.activeEdges);
+	if (active_edge && _centralNode == -1){
+		_centralNode = _six;
+	}
         var _isLinked = false;
         if (_centralNode != -1) {
             if (_six == _centralNode) {
@@ -663,11 +704,11 @@ function traceMap() {
             }
         }
 
-        if ( ( _isLinked || _displayEdges ) && ( _ds.withinFrame || _dt.withinFrame ) &&  _ds.visible && _dt.visible ) {
+        if (  (( _isLinked || _displayEdges ) && ( _ds.withinFrame || _dt.withinFrame ) &&  _ds.visible && _dt.visible) ||  active_edge) {
             GexfJS.ctxGraphe.lineWidth = _edgeSizeFactor * _d.width;
             var _coords = ( ( GexfJS.params.useLens && GexfJS.mousePosition ) ? calcCoord( GexfJS.mousePosition.x , GexfJS.mousePosition.y , _ds.coords.actual ) : _ds.coords.actual );
             _coordt = ( (GexfJS.params.useLens && GexfJS.mousePosition) ? calcCoord( GexfJS.mousePosition.x , GexfJS.mousePosition.y , _dt.coords.actual ) : _dt.coords.actual );
-            GexfJS.ctxGraphe.strokeStyle = ( _isLinked ? _d.color : "rgba(100,100,100,0.2)" );
+            GexfJS.ctxGraphe.strokeStyle = ( (_isLinked && ! GexfJS.params.path_active) || active_edge ? _d.color : "rgba(100,100,100,0.2)" );
             traceArc(GexfJS.ctxGraphe, _coords, _coordt);
         }
     }

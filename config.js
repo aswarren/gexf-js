@@ -28,6 +28,7 @@ setParams({
             Change this parameter for wider or narrower edges
             this setting can't be changed from the User Interface
         */
+    pathAttr : "5",
     minEdgeWidth : 0.2,
     maxEdgeWidth : 1,
     textDisplayThreshold: 9,
