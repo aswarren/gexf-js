@@ -221,7 +221,7 @@ function displayNode(_nodeIndex, _recentre) {
         _str += '<h4>' + strLang("nodeAttr") + '</h4>';
         _str += '<ul><li><b>id</b> : ' + _d.id + '</li>';
         for (var i in _d.attributes) {
-            _str += '<li><b>' + (GexfJS._node_attr[i] || strLang(i)) + '</b> : ' + replaceURLWithHyperlinks( _d.attributes[i] ) + '</li>';
+            _str += '<li><b>' + (GexfJS._node_attr[i] || strLang(i)) + '</b> : ' + '<div class="attribute_box" >'+replaceURLWithHyperlinks( _d.attributes[i] ) +'</div>'+ '</li>';
         }
         _str += '</ul><h4>' + ( GexfJS.graph.directed ? strLang("inLinks") : strLang("undirLinks") ) + '</h4><ul>';
         for (var i in GexfJS.graph.edgeList) {

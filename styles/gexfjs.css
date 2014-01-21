@@ -11,6 +11,14 @@ body {
     clear: both;
 }
 
+.attribute_box{
+width 100%;
+max-height: 250px;
+overflow: scroll;
+word-wrap: break-word;
+}
+
+
 .gradient {
     background-color: #f0f0f8; 
     background-image: -webkit-radial-gradient(#ffffff, #d8d8e0); background-image: -moz-radial-gradient(#ffffff, #d8d8e0);
