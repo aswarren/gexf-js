@@ -482,6 +482,7 @@ function loadGraph() {
     $.ajax({
         url: ( document.location.hash.length > 1 ? document.location.hash.substr(1) : GexfJS.params.graphFile ),
         dataType: "xml",
+	accepts: "application/xml",
         success: function(data) {
             var _s = new Date();
             var _g = $(data).find("graph"),
