@@ -257,7 +257,14 @@ function displayPath(_eid, _path_str){
 		var _e = undefined;
 	}
 	//var _e = (typeof _eid !== undefined ? GexfJS.graph.edgeLookup[_eid] : undefined);
-	var _pathList = (typeof _e !== "undefined" ? _e.path : (typeof _path_str !== "undefined" ? _path_str.split(/[ ,]+/) : undefined));
+	var _pathList=undefined;
+	if (typeof _e !== "undefined"){
+		_pathList= _e.path;
+	}
+	else if (_path_str !== "undefined"){
+		_pathList= _path_str.split(/[ ,]+/);
+	}
+	//var _pathList = (typeof _e !== "undefined" ? _e.path : (typeof _path_str !== "undefined" ? _path_str.split(/[ ,]+/) : undefined));
 		
 	for (var i in _pathList){
 		var _elist=GexfJS.path_highlights[_pathList[i]];
