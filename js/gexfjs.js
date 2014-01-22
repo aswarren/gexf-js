@@ -188,10 +188,11 @@ function replaceURLWithHyperlinks(text) {
     return text;
 }
 
-function getPATRICLocations(location_ref, locations){
+function getPATRICLocations(location_ref, locations, location_order){
 	if (typeof GexfJS.params.patric_locations === "undefined") {
 		GexfJS.params.patric_locations=locations;
 		GexfJS.params.location_ref=location_ref;
+		GexfJS.params.location_order=location_order;
 		sids=[];
 		for (i in locations){
 			sids.push(i);
@@ -203,13 +204,14 @@ function getPATRICLocations(location_ref, locations){
         		success: function(data) {
 				result=[];
 				_locations=GexfJS.params.patric_locations;
+				_location_order=GexfJS.params.location_order;
 				for (var i in data){
 					if(data[i].sid in _locations){
 						_locations[data[i].sid]["description"]=data[i].description;
 					}
 				}
-				for (var j in _locations){
-					result.push('<a href="#" onclick="displayPath(undefined,'+"'"+_locations[j].sid+"'"+'); return false;">'+_locations[j].description+'</a>:'+_locations[j].base);
+				for (var j in _location_order){
+					result.push('<a href="#" onclick="displayPath(undefined,'+"'"+_locations[_location_order[j]].sid+"'"+'); return false;">'+_locations[_location_order[j]].description+'</a>:'+_locations[_location_order[j]].base);
 				}
 				GexfJS.params.location_ref.html(result.join('<br>'));
 				GexfJS.params.patric_locations=undefined;
@@ -228,6 +230,7 @@ function replaceLocationLinks(location_ref) {
 	var location_str=location_ref.text();
 	var locations=location_str.split(/[ ,]+/);
 	var locations_obj={};
+	var location_order=[];
 	for (var i in locations){
 		var _info= locations[i].split(/[ :]+/);
 		if (_info.length ==2){
@@ -235,12 +238,13 @@ function replaceLocationLinks(location_ref) {
 				sid: _info[0],
 				base: _info[1]
 			};
+			location_order.push(_info[0]);
 			_info[0]='<a href="#" onclick="displayPath(undefined,'+"'"+_info[0]+"'"+'); return false;">'+_info[0]+'</a>';
 		}
 		locations[i]=_info.join(':');
 	}
-	location_ref.html(locations.join(', '));
-	getPATRICLocations(location_ref, locations_obj);
+	location_ref.html(locations.join('<br>'));
+	getPATRICLocations(location_ref, locations_obj, location_order);
 }
 	
 
