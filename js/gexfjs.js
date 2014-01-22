@@ -499,18 +499,25 @@ function loadGraph() {
             _edge_attr=_g.children().filter("attributes").filter(".edge").children();
             GexfJS._node_attr={};
             GexfJS._edge_attr={};
+            GexfJS._node_attr_value={};
+            GexfJS._edge_attr_value={};
             $(_node_attr).each(function() {
                 var n_attr =$(this);
                 _id=n_attr.attr("id");
                 _value=n_attr.attr("title");
                 GexfJS._node_attr[_id]=_value;
+                GexfJS._node_attr_value[_value]=_id;
             });
             $(_edge_attr).each(function() {
                 var n_attr =$(this);
                 _id=n_attr.attr("id");
                 _value=n_attr.attr("title");
                 GexfJS._edge_attr[_id]=_value;
+                GexfJS._edge_attr_value[_value]=_id;
             });
+            if (GexfJS.params.pathAttr in GexfJS._edge_attr_value){
+                GexfJS.params.pathAttr = GexfJS._edge_attr_value[GexfJS.params.pathAttr];
+            }
             GexfJS.graph = {
                 directed : ( _g.attr("defaultedgetype") == "directed" ),
                 source : data,
