@@ -188,18 +188,41 @@ function replaceURLWithHyperlinks(text) {
     return text;
 }
 
+function getPATRICLocations(location_ref, locations){
+	if (typeof GexfJS.params.patric_locations === "undefined") {
+		GexfJS.params.patric_locations=locations;
+		var location_url=GexfJS.params.location_url.replace('SIDSTRING',locations.keys().join());
+		$.ajax({
+			url: location_url, 	
+        		dataType: "json",
+        		success: function(data) {		
+				GexfJS.params.patric_locations=undefined;
+			}
+			error: function(xhr, ajaxOptions, thrownError){
+				alert(xhr.status);
+				alert(thrownError);
+				GexfJS.params.patric_locations=undefined;
+			}
+			
+		});
+	}
+}
+
 function replaceLocationLinks(location_ref) {
 	var location_str=location_ref.text();
 	var locations=location_str.split(/[ ,]+/);
+	var locations_obj={};
 	for (var i in locations){
 		var _info= locations[i].split(/[ :]+/);
 		if (_info.length ==2){
+			locations_obj[_info[0]]=_info[1];
 			_info[0]='<a href="#" onclick="displayPath(undefined,'+"'"+_info[0]+"'"+'); return false;">'+_info[0]+'</a>';
 		}
 		locations[i]=_info.join(':');
 	}
 	location_ref.html(locations.join(', '));
-	}
+	getPATRICLocations(location_ref, locations_obj);
+}
 	
 
 function displayPath(_eid, _path_str){
