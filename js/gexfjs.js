@@ -191,13 +191,17 @@ function replaceURLWithHyperlinks(text) {
 function getPATRICLocations(location_ref, locations){
 	if (typeof GexfJS.params.patric_locations === "undefined") {
 		GexfJS.params.patric_locations=locations;
-		var location_url=GexfJS.params.location_url.replace('SIDSTRING',locations.keys().join());
+		sids=[];
+		for (i in locations){
+			sids.push(i);
+		}	
+		var location_url=GexfJS.params.location_url.replace('SIDSTRING',sids.join());
 		$.ajax({
 			url: location_url, 	
         		dataType: "json",
         		success: function(data) {		
 				GexfJS.params.patric_locations=undefined;
-			}
+			},
 			error: function(xhr, ajaxOptions, thrownError){
 				alert(xhr.status);
 				alert(thrownError);
