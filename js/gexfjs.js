@@ -211,7 +211,7 @@ function getPATRICLocations(location_ref, locations){
 				for (var j in _locations){
 					result.push('<a href="#" onclick="displayPath(undefined,'+"'"+_locations[j].sid+"'"+'); return false;">'+_locations[j].description+'</a>:'+_locations[j].base);
 				}
-				GexfJS.params.location_ref.html(result.join(', '));
+				GexfJS.params.location_ref.html(result.join('<br>'));
 				GexfJS.params.patric_locations=undefined;
 			},
 			error: function(xhr, ajaxOptions, thrownError){
