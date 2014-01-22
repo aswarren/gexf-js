@@ -211,7 +211,7 @@ function getPATRICLocations(location_ref, locations, location_order){
 					}
 				}
 				for (var j in _location_order){
-					result.push('<div class="smallpill" style="background: black">'+'<a href="#" onclick="displayPath(undefined,'+"'"+_locations[_location_order[j]].sid+"'"+'); return false;">'+_locations[_location_order[j]].description+'</a>: '+_locations[_location_order[j]].base);
+					result.push('<div class="smallpill" style="background: black"></div>'+'<a href="#" onclick="displayPath(undefined,'+"'"+_locations[_location_order[j]].sid+"'"+'); return false;">'+_locations[_location_order[j]].description+'</a>: '+_locations[_location_order[j]].base);
 				}
 				GexfJS.params.location_ref.html(result.join('<br>'));
 				GexfJS.params.patric_locations=undefined;
