@@ -193,7 +193,7 @@ function replaceLocationLinks(location_ref) {
 	var locations=location_str.split(/[ ,]+/);
 	for (var i in locations){
 		var _info= locations[i].split(/[ :]+/);
-		if (_info.length() ==2){
+		if (_info.length ==2){
 			_info[0]='<a href="#" onclick="displayPath(undefined,'+_info[0]+'); return false;">';
 		}
 		locations[i]=_info.join(':');
