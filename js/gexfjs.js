@@ -188,10 +188,25 @@ function replaceURLWithHyperlinks(text) {
     return text;
 }
 
-function displayPath(_eid){
+function replaceLocationLinks(location_ref) {
+	var location_str=location_ref.text();
+	var locations=location_str.split(/[ ,]+/);
+	for (var i in locations){
+		var _info= locations[i].split(/[ :]+/);
+		if (_info.length() ==2){
+			_info[0]='<a href="#" onclick="displayPath(undefined,'+_info[0]+'); return false;">';
+		}
+		locations[i]=_info.join(':');
+	}
+	location_ref.text()=locations.join(', ');
+	}
+	
+
+function displayPath(_eid, _path_str){
 	GexfJS.params.activeEdges={};
-	var _e = GexfJS.graph.edgeLookup[_eid];
-	var _pathList = _e.path;
+	var _e = (typeof _eid !== undefined ? GexfJS.graph.edgeLookup[_eid] : undefined);
+	var _pathList = (typeof _e !== undefined ? _e.path : (typeof _path_str !== undefined ? _path_str.split(/[ ,]+/) : undefined));
+		
 	for (var i in _pathList){
 		var _elist=GexfJS.path_highlights[_pathList[i]];
 		for (var target_id in _elist){
@@ -221,7 +236,8 @@ function displayNode(_nodeIndex, _recentre) {
         _str += '<h4>' + strLang("nodeAttr") + '</h4>';
         _str += '<ul><li><b>id</b> : ' + _d.id + '</li>';
         for (var i in _d.attributes) {
-            _str += '<li><b>' + (GexfJS._node_attr[i] || strLang(i)) + '</b> : ' + '<div class="attribute_box" >'+replaceURLWithHyperlinks( _d.attributes[i] ) +'</div>'+ '</li>';
+            var attr_name=(GexfJS._node_attr[i] || strLang(i));
+            _str += '<li><b>' + attr_name + '</b> : ' + '<div class="attribute_box" id="left_'+attr_name+'">'+replaceURLWithHyperlinks( _d.attributes[i] ) +'</div>'+ '</li>';
         }
         _str += '</ul><h4>' + ( GexfJS.graph.directed ? strLang("inLinks") : strLang("undirLinks") ) + '</h4><ul>';
         for (var i in GexfJS.graph.edgeList) {
@@ -241,6 +257,10 @@ function displayNode(_nodeIndex, _recentre) {
         }
         _str += '</ul><p></p>';
         $("#leftcontent").html(_str);
+        var location_ref= $("#left_locations");
+	if (location_ref){
+		replaceLocationLinks(location_ref);
+	}
         if (_recentre) {
             GexfJS.params.centreX = _b.x;
             GexfJS.params.centreY = _b.y;
