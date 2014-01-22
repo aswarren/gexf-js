@@ -194,7 +194,7 @@ function replaceLocationLinks(location_ref) {
 	for (var i in locations){
 		var _info= locations[i].split(/[ :]+/);
 		if (_info.length ==2){
-			_info[0]='<a href="#" onclick="displayPath(undefined,'+_info[0]+'); return false;">'+_info[0]+'</a>';
+			_info[0]='<a href="#" onclick="displayPath(undefined,'+"'"+_info[0]+"'"+'); return false;">'+_info[0]+'</a>';
 		}
 		locations[i]=_info.join(':');
 	}
