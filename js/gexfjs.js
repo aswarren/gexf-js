@@ -198,7 +198,7 @@ function replaceLocationLinks(location_ref) {
 		}
 		locations[i]=_info.join(':');
 	}
-	location_ref.text()=locations.join(', ');
+	location_ref.text(locations.join(', '));
 	}
 	
 
