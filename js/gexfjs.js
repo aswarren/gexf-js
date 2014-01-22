@@ -191,6 +191,7 @@ function replaceURLWithHyperlinks(text) {
 function getPATRICLocations(location_ref, locations){
 	if (typeof GexfJS.params.patric_locations === "undefined") {
 		GexfJS.params.patric_locations=locations;
+		GexfJS.params.location_ref=location_ref;
 		sids=[];
 		for (i in locations){
 			sids.push(i);
@@ -199,7 +200,18 @@ function getPATRICLocations(location_ref, locations){
 		$.ajax({
 			url: location_url, 	
         		dataType: "json",
-        		success: function(data) {		
+        		success: function(data) {
+				result=[];
+				_locations=GexfJS.params.patric_locations;
+				for (var i in data){
+					if(i.sid in _locations){
+						_locations[i.sid]["description"]=i.description;
+					}
+				}
+				for (var j in _locations){
+					result.push('<a href="#" onclick="displayPath(undefined,'+"'"+j.sid+"'"+'); return false;">'+j.description+'</a>:'+j.base);
+				}
+				GexfJS.params.location_ref.html(result.join(', '));
 				GexfJS.params.patric_locations=undefined;
 			},
 			error: function(xhr, ajaxOptions, thrownError){
@@ -219,7 +231,10 @@ function replaceLocationLinks(location_ref) {
 	for (var i in locations){
 		var _info= locations[i].split(/[ :]+/);
 		if (_info.length ==2){
-			locations_obj[_info[0]]=_info[1];
+			locations_obj[_info[0]]={
+				sid: _info[0],
+				base: _info[1]
+			};
 			_info[0]='<a href="#" onclick="displayPath(undefined,'+"'"+_info[0]+"'"+'); return false;">'+_info[0]+'</a>';
 		}
 		locations[i]=_info.join(':');
