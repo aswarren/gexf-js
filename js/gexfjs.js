@@ -204,12 +204,12 @@ function getPATRICLocations(location_ref, locations){
 				result=[];
 				_locations=GexfJS.params.patric_locations;
 				for (var i in data){
-					if(i.sid in _locations){
-						_locations[i.sid]["description"]=i.description;
+					if(data[i].sid in _locations){
+						_locations[data[i].sid]["description"]=data[i].description;
 					}
 				}
 				for (var j in _locations){
-					result.push('<a href="#" onclick="displayPath(undefined,'+"'"+j.sid+"'"+'); return false;">'+j.description+'</a>:'+j.base);
+					result.push('<a href="#" onclick="displayPath(undefined,'+"'"+_locations[j].sid+"'"+'); return false;">'+_locations[j].description+'</a>:'+_locations[j].base);
 				}
 				GexfJS.params.location_ref.html(result.join(', '));
 				GexfJS.params.patric_locations=undefined;
