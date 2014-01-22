@@ -214,6 +214,10 @@ div.smallpill {
     float: left; width: 12px; height: 12px; border-radius: 6px; margin: 0 5px 0 0;
 }
 
+div.smallbox {
+    float: left; width: 8px; height: 8px; margin: 0 5px 0 0;
+}
+
 #leftcontent h3 {
     font-size: 16px;
 }
