@@ -224,7 +224,7 @@ function getPATRICLocations(location_ref, locations, location_order){
 				}
 				result.push('<div id="genome_list">\n');
 				for (var g in _genome_menu){
-					num_sid=genome_menu[g].sids.length.toString();
+					num_sid=_genome_menu[g].sids.length.toString();
 					result.push('<h6 id="'+g+'_header">'+_genome_menu[g].genome_name+'<a href="#" onclick="displayPath(undefined,'+"'"+genome_menu[g].sids.join(',')+"'"+'); return false;"></h6>\n<div>\n');
 					result.push('<ul id = '+g+'_sids >\n');
 					for (var j in sid_list=_genome_menu[g].sids){
