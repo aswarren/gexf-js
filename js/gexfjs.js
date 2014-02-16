@@ -222,10 +222,18 @@ function getPATRICLocations(location_ref, locations, location_order){
 						_locations[data.items[i].sid]["description"]=data.items[i].description;
 					}
 				}
-				for (var j in _location_order){
-					result.push('<div class="smallbox" style="background: black"></div>'+'<a href="#" onclick="displayPath(undefined,'+"'"+_locations[_location_order[j]].sid+"'"+'); return false;">'+_locations[_location_order[j]].description+'</a>: '+_locations[_location_order[j]].base);
+				result.push('<div id="genome_list">\n');
+				for (var g in _genome_menu){
+					result.push('<h3 id="'+g+'_header">'+_genome_menu[g].genome_name+'</h3>\n<div>\n');
+					result.push('<ul id = '+g+'_sids >\n');
+					for (var j in sid_list=_genome_menu[g].sids){
+						result.push('<li> <div class="smallbox" style="background: black"></div>'+'<a href="#" onclick="displayPath(undefined,'+"'"+sid_list[j]+"'"+'); return false;">'+_locations[sid_list[j]].description+'</a>: '+_locations[sid_list[j]].base)+' </li>/n';
+					}
+					result.push('</ul>\n</div>\n');
 				}
-				GexfJS.params.location_ref.html(result.join('<br>'));
+				result.push('</div>');
+				GexfJS.params.location_ref.html(result.join(''));
+				$( "#genome_list" ).accordion();
 				GexfJS.params.patric_locations=undefined;
 			},
 			error: function(xhr, ajaxOptions, thrownError){
