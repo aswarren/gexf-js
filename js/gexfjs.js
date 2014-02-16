@@ -188,6 +188,24 @@ function replaceURLWithHyperlinks(text) {
     return text;
 }
 
+function parsePATRIC_GID_Pivot(data){
+	_genome_menu={};
+	//pivot structure gid,genome_name,sid
+	for (var p1 in _pt = data.facets.facet_pivot){//pivot table
+		for (var p2 in _pt[p1]){ //gid
+			_gid = _pt[p1][p2].value;
+			_gids.push(_gid);
+			_gn = _pt[p1][p2].pivot[0].value;//gid:gn 1:1
+			_genome_menu[_gid]={'genome_name':_gn,'sids':[]};
+			for (var p3 in seqs = _pt[p1][p2].pivot[0].pivot){//sid
+				_genome_menu[_gid].sids.push(seqs[p3].value);
+			}
+		}
+	}
+	return _genome_menu;
+}
+	
+
 function getPATRICLocations(location_ref, locations, location_order){
 	if (typeof GexfJS.params.patric_locations === "undefined") {
 		GexfJS.params.patric_locations=locations;
@@ -205,27 +223,17 @@ function getPATRICLocations(location_ref, locations, location_order){
 				result=[];
 				_locations=GexfJS.params.patric_locations;
 				_location_order=GexfJS.params.location_order;
-				_genome_menu={};
-				//pivot structure gid,genome_name,sid
-				for (var p1 in _pt = data.facets.facet_pivot){//pivot table
-					for (var p2 in _pt[p1]){ //gid
-						_gid = _pt[p1][p2].value;
-						_gn = _pt[p1][p2].pivot[0].value;//gid:gn 1:1
-						_genome_menu[_gid]={'genome_name':_gn,'sids':[]};
-						for (var p3 in seqs = _pt[p1][p2].pivot[0].pivot){//sid
-							_genome_menu[_gid].sids.push(seqs[p3].value);
-						}
-					}
-				}
+				_gids=[];
 				for (var i in data.items){
 					if(data.items[i].sid in _locations){
 						_locations[data.items[i].sid]["description"]=data.items[i].description;
 					}
-				}
+				}	
+				_genome_menu=parsePATRIC_GID_Pivot(data);
 				result.push('<div id="genome_list">\n');
 				for (var g in _genome_menu){
 					num_sid=_genome_menu[g].sids.length.toString();
-					result.push('<h6 id="'+g+'_header">'+_genome_menu[g].genome_name+' <a href="#" onclick="displayPath(undefined,'+"'"+_genome_menu[g].sids.join(',')+"'"+'); return false;">'+num_sid+'</a></h6>\n<div>\n');
+					result.push('<h6 id="'+g+'_header">'+_genome_menu[g].genome_name+' (<span id="'+g+'_num" <a href="#" onclick="displayPath(undefined,'+"'"+_genome_menu[g].sids.join(',')+"'"+'); return false;">'+num_sid+'</a></span>)</h6>\n<div>\n');
 					result.push('<ul id = '+g+'_sids >\n');
 					for (var j in sid_list=_genome_menu[g].sids){
 						result.push('<li> <div class="smallbox" style="background: black"></div>'+'<a href="#" onclick="displayPath(undefined,'+"'"+sid_list[j]+"'"+'); return false;">'+_locations[sid_list[j]].description+'</a>: '+_locations[sid_list[j]].base)+' </li>/n';
