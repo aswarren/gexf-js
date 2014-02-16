@@ -208,11 +208,11 @@ function getPATRICLocations(location_ref, locations, location_order){
 				_genome_menu={};
 				//pivot structure gid,genome_name,sid
 				for (var p1 in _pt = data.facets.facet_pivot){//pivot table
-					for (var p2 in _pt[p]){ //gid
-						_gid = _pt[p][p2].value;
-						_gn = _pt[p][p2].pivot[0].value;//gid:gn 1:1
+					for (var p2 in _pt[p1]){ //gid
+						_gid = _pt[p1][p2].value;
+						_gn = _pt[p1][p2].pivot[0].value;//gid:gn 1:1
 						_genome_menu[_gid]={'genome_name':_gn,'sids':[]};
-						for (var p3 in seqs = _pt[p][p2].pivot[0].pivot){//sid
+						for (var p3 in seqs = _pt[p1][p2].pivot[0].pivot){//sid
 							_genome_menu[_gid].sids.push(seqs[p3].value);
 						}
 					}
