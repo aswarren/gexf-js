@@ -207,8 +207,8 @@ function getPATRICLocations(location_ref, locations, location_order){
 				_location_order=GexfJS.params.location_order;
 				_genome_menu={}
 				for (var i in data.items){
-					if(i.sid in _locations){
-						_locations[i.sid]["description"]=i.description;
+					if(data.items[i].sid in _locations){
+						_locations[data.items[i].sid]["description"]=data.items[i].description;
 					}
 				}
 				for (var j in _location_order){
