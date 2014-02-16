@@ -33,7 +33,7 @@ setParams({
     maxEdgeWidth : 1,
     textDisplayThreshold: 9,
     nodeSizeFactor : 1,
-    location_url: 'http://polyomic.patricbrc.org/sequenceinfo/?eq(sid,or(SIDSTRING))&select(sid,description)',
+    location_url: 'http://polyomic.patricbrc.org/sequenceinfo/?eq(sid,or(SIDSTRING))&select(sid,description)&facet((pivot,(gid,genome_name_sort,sid)))',
         /*
             Change this parameter for smaller or larger nodes
            this setting can't be changed from the User Interface
