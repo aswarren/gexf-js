@@ -205,7 +205,18 @@ function getPATRICLocations(location_ref, locations, location_order){
 				result=[];
 				_locations=GexfJS.params.patric_locations;
 				_location_order=GexfJS.params.location_order;
-				_genome_menu={}
+				_genome_menu={};
+				//pivot structure gid,genome_name,sid
+				for (var p1 in _pt = data.facets.facet_pivot){//pivot table
+					for (var p2 in _pt[p]){ //gid
+						_gid = _pt[p][p2].value;
+						_gn = _pt[p][p2].pivot[0].value;//gid:gn 1:1
+						_genome_menu[_gid]={'genome_name':_gn,'sids':[]};
+						for (var p3 in seqs = _pt[p][p2].pivot[0].pivot){//sid
+							_genome_menu[_gid].sids.push(seqs[p3].value);
+						}
+					}
+				}
 				for (var i in data.items){
 					if(data.items[i].sid in _locations){
 						_locations[data.items[i].sid]["description"]=data.items[i].description;
