@@ -18,6 +18,13 @@ overflow-y: scroll;
 word-wrap: break-word;
 }
 
+.ui-accordion{
+border-style:solid;
+border-radius:4px;
+border-width:thin;
+border:black;
+}
+
 ::-webkit-scrollbar {
     -webkit-appearance: none;
     width: 7px;
