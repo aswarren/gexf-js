@@ -188,7 +188,7 @@ function replaceURLWithHyperlinks(text) {
     return text;
 }
 
-function parsePATRIC_GID_Pivot(data){
+function parsePATRIC_GID_Pivot(data, _gids){
 	_genome_menu={};
 	//pivot structure gid,genome_name,sid
 	for (var p1 in _pt = data.facets.facet_pivot){//pivot table
@@ -204,6 +204,9 @@ function parsePATRIC_GID_Pivot(data){
 	}
 	return _genome_menu;
 }
+
+function getPATRIC_ExtraReplicons(_gids, _sids){
+}	
 	
 
 function getPATRICLocations(location_ref, locations, location_order){
@@ -229,7 +232,7 @@ function getPATRICLocations(location_ref, locations, location_order){
 						_locations[data.items[i].sid]["description"]=data.items[i].description;
 					}
 				}	
-				_genome_menu=parsePATRIC_GID_Pivot(data);
+				_genome_menu=parsePATRIC_GID_Pivot(data, _gids);
 				result.push('<div id="genome_list">\n');
 				for (var g in _genome_menu){
 					num_sid=_genome_menu[g].sids.length.toString();
