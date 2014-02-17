@@ -188,7 +188,7 @@ function replaceURLWithHyperlinks(text) {
     return text;
 }
 
-function parsePATRIC_GID_Pivot(data, _gids){
+function parsePATRIC_GID_Pivot(data, _gids, _sids){
 	_genome_menu={};
 	//pivot structure gid,genome_name,sid
 	for (var p1 in _pt = data.facets.facet_pivot){//pivot table
@@ -199,6 +199,7 @@ function parsePATRIC_GID_Pivot(data, _gids){
 			_genome_menu[_gid]={'genome_name':_gn,'sids':[]};
 			for (var p3 in seqs = _pt[p1][p2].pivot[0].pivot){//sid
 				_genome_menu[_gid].sids.push(seqs[p3].value);
+				_sids.push(seqs[p3].value);
 			}
 		}
 	}
@@ -206,6 +207,27 @@ function parsePATRIC_GID_Pivot(data, _gids){
 }
 
 function getPATRIC_ExtraReplicons(_gids, _sids){
+		var replicon_url=GexfJS.params.replicon_url.replace('SIDSTRING',_sids.join()).replace('GIDSTRING',_gids.join());
+		$.ajax({
+			url: replicon_url, 	
+        		dataType: "json",
+        		success: function(data) {
+				_gids_found=[];
+				_sids_found=[];
+				_extras_menu=parsePATRIC_GID_Pivot(data, _gids_found, _sids_found);
+				_genome_menu=GexfJS.params.genome_menu;
+				for (var g in _extras_menu){
+					num_sid=(_genome_menu[g].sids.length + _extras_menu[g].sids.length).toString();
+					 $( "#"+g+"_num" ).append(' <a href="#" onclick="displayPath(undefined,'+"'"+(_extras_menu[g].sids.concat(_genome_menu[g].sids)).join()+"'"+'); return false;">'+num_sid+'</a>');
+				}
+			},
+			
+			error: function(xhr, ajaxOptions, thrownError){
+				alert(xhr.status);
+				alert(thrownError);
+				GexfJS.params.patric_locations=undefined;
+			}
+		});		
 }	
 	
 
@@ -226,13 +248,14 @@ function getPATRICLocations(location_ref, locations, location_order){
 				result=[];
 				_locations=GexfJS.params.patric_locations;
 				_location_order=GexfJS.params.location_order;
-				_gids=[];
+				_gids_found=[];
+				_sids_found=[];
 				for (var i in data.items){
 					if(data.items[i].sid in _locations){
 						_locations[data.items[i].sid]["description"]=data.items[i].description;
 					}
 				}	
-				_genome_menu=parsePATRIC_GID_Pivot(data, _gids);
+				_genome_menu=parsePATRIC_GID_Pivot(data, _gids_found, _sids_found);
 				result.push('<div id="genome_list">\n');
 				for (var g in _genome_menu){
 					num_sid=_genome_menu[g].sids.length.toString();
@@ -247,6 +270,8 @@ function getPATRICLocations(location_ref, locations, location_order){
 				GexfJS.params.location_ref.html(result.join(''));
 				$( "#genome_list" ).accordion();
 				GexfJS.params.patric_locations=undefined;
+				GexfJS.params.genome_menu=_genome_menu;
+				getPATRIC_ExtraReplicons(_gids_found, _sids_found);
 			},
 			error: function(xhr, ajaxOptions, thrownError){
 				alert(xhr.status);
