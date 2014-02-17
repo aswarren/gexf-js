@@ -216,9 +216,20 @@ function getPATRIC_ExtraReplicons(_gids, _sids){
 				_sids_found=[];
 				_extras_menu=parsePATRIC_GID_Pivot(data, _gids_found, _sids_found);
 				_genome_menu=GexfJS.params.genome_menu;
+				_locations={};
+				//get other replicon names
+				for (var i in data.items){
+					_locations[data.items[i].sid]=loc={};
+					loc["description"]=data.items[i].description;
+				}	
+				//setup high level numbers
 				for (var g in _extras_menu){
 					num_sid=(_genome_menu[g].sids.length + _extras_menu[g].sids.length).toString();
-					 $( "#"+g+"_num" ).append(' of <a href="#" onclick="displayPath(undefined,'+"'"+(_extras_menu[g].sids.concat(_genome_menu[g].sids)).join()+"'"+'); return false;">'+num_sid+'</a>');
+					$( "#"+g+"_num" ).append(' of <a href="#" onclick="displayPath(undefined,'+"'"+(_extras_menu[g].sids.concat(_genome_menu[g].sids)).join()+"'"+'); return false;">'+num_sid+'</a>');
+					_sid_list=$( "#"+g+"_sids" );
+					for (var j in _extras_menu[g].sids){
+						//_sid_list.append();
+					}
 				}
 			},
 			
