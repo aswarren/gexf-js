@@ -232,6 +232,7 @@ function getPATRIC_ExtraReplicons(_gids, _sids){
 						
 					}
 				}
+				$( "#genome_list" ).accordion('destroy').accordion({ header: "h6", collapsible: true, active: false });
 			},
 			
 			error: function(xhr, ajaxOptions, thrownError){
