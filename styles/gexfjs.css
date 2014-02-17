@@ -45,6 +45,14 @@ word-wrap: break-word;
 }
 
 
+h6 {
+    color:black;
+}
+
+h6 a {
+    color:#1c94c4;
+}
+
 h1 {
     margin:0;
 }
