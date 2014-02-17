@@ -232,7 +232,7 @@ function getPATRIC_ExtraReplicons(_gids, _sids){
 						
 					}
 				}
-				$( "#genome_list" ).accordion('destroy').accordion({ header: "h6", collapsible: true, active: false });
+				$( "#genome_list" ).accordion('refresh');//.accordion({ header: "h6", collapsible: true, active: false });
 			},
 			
 			error: function(xhr, ajaxOptions, thrownError){
@@ -281,7 +281,7 @@ function getPATRICLocations(location_ref, locations, location_order){
 				}
 				result.push('</div>');
 				GexfJS.params.location_ref.html(result.join(''));
-				$( "#genome_list" ).accordion({ header: "h6", collapsible: true, active: false });
+				$( "#genome_list" ).accordion({ header: "h6", collapsible: true, active: false, heightStyle: "content" });
 				GexfJS.params.patric_locations=undefined;
 				GexfJS.params.genome_menu=_genome_menu;
 				getPATRIC_ExtraReplicons(_gids_found, _sids_found);
