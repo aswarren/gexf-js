@@ -227,13 +227,17 @@ function getPATRIC_ExtraReplicons(_gids, _sids){
 					num_sid=(_genome_menu[g].sids.length + _extras_menu[g].sids.length).toString();
 					$( "#"+g+"_num" ).append(' of <a href="#" onclick="displayPath(undefined,'+"'"+(_extras_menu[g].sids.concat(_genome_menu[g].sids)).join()+"'"+'); return false;">'+num_sid+'</a>');
 					_sid_list=$( "#"+g+"_sids" );
+					_missing_replicons=[]
 					for (var j in cur_sids= _extras_menu[g].sids){
-						_sid_list.append(
-							cur_sids[j] in GexfJS.path_highlights ? 
-							'<li><div class="smallbox" style="background: white"></div><a href="#" onclick="displayPath(undefined,'+"'"+cur_sids[j]+"'"+'); return false;">'+_locations[cur_sids[j]].description+'</a></li>'
-							: '<li style="text-color:#B9B9B9;"><div class="smallbox" style="background: white"></div>'+_locations[cur_sids[j]].description+'</li>'
-						);
-						
+						if (cur_sids[j] in GexfJS.path_highlights){
+							_sid_list.append('<li><div class="smallbox" style="background: white"></div><a href="#" onclick="displayPath(undefined,'+"'"+cur_sids[j]+"'"+'); return false;">'+_locations[cur_sids[j]].description+'</a></li>');
+						}
+						else {
+							_missing_replicons.append('<li style="text-color:#DFDFDF;"><div class="smallbox" style="background: white"></div>'+_locations[cur_sids[j]].description+'</li>');
+						}		
+					}
+					for (var k in _missing_replicons){
+						_sid_list.append(_missing_replicons[k]);
 					}
 				}
 				$( "#genome_list" ).accordion('refresh');//.accordion({ header: "h6", collapsible: true, active: false });
