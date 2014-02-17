@@ -259,7 +259,7 @@ function getPATRICLocations(location_ref, locations, location_order){
 				result.push('<div id="genome_list">\n');
 				for (var g in _genome_menu){
 					num_sid=_genome_menu[g].sids.length.toString();
-					result.push('<h6 id="'+g+'_header">'+_genome_menu[g].genome_name+' (<span id="'+g+'_num >" <a href="#" onclick="displayPath(undefined,'+"'"+_genome_menu[g].sids.join(',')+"'"+'); return false;">'+num_sid+'</a></span>)</h6>\n<div>\n');
+					result.push('<h6 id="'+g+'_header">'+_genome_menu[g].genome_name+' (<span id="'+g+'_num" > <a href="#" onclick="displayPath(undefined,'+"'"+_genome_menu[g].sids.join(',')+"'"+'); return false;">'+num_sid+'</a></span>)</h6>\n<div>\n');
 					result.push('<ul id = '+g+'_sids >\n');
 					for (var j in sid_list=_genome_menu[g].sids){
 						result.push('<li> <div class="smallbox" style="background: black"></div>'+'<a href="#" onclick="displayPath(undefined,'+"'"+sid_list[j]+"'"+'); return false;">'+_locations[sid_list[j]].description+'</a>: '+_locations[sid_list[j]].base)+' </li>/n';
