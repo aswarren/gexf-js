@@ -226,13 +226,13 @@ function getPATRIC_ExtraReplicons(_gids, _sids){
 				for (var g in _extras_menu){
 					num_sid=(_genome_menu[g].sids.length + _extras_menu[g].sids.length).toString();
 					$( "#"+g+"_num" ).append(' of <a href="#" onclick="displayPath(undefined,'+"'"+(_extras_menu[g].sids.concat(_genome_menu[g].sids)).join()+"'"+'); return false;">'+num_sid+'</a>');
-					//_sid_list=$( "#"+g+"_sids" );
-					//for (var j in cur_sids= _extras_menu[g].sids){
-						//_sid_list.append('<li><div class="smallbox" style="background: white"></div><a href="#" onclick="displayPath(undefined,'+"'"+cur_sids[j]+"'"+'); return false;">'+_locations[cur_sids[j]].description+'</a></li>');
+					_sid_list=$( "#"+g+"_sids" );
+					for (var j in cur_sids= _extras_menu[g].sids){
+						_sid_list.append('<li><div class="smallbox" style="background: white"></div><a href="#" onclick="displayPath(undefined,'+"'"+cur_sids[j]+"'"+'); return false;">'+_locations[cur_sids[j]].description+'</a></li>');
 						
-					//}
+					}
 				}
-				//$( "#genome_list" ).accordion('destroy').accordion({ header: "h6", collapsible: true, active: false });
+				$( "#genome_list" ).accordion('destroy').accordion({ header: "h6", collapsible: true, active: false });
 			},
 			
 			error: function(xhr, ajaxOptions, thrownError){
