@@ -240,7 +240,7 @@ div.smallpill {
 }
 
 div.smallbox {
-    float: left; width: 8px; height: 8px; margin: 3px 5px 0 0; border: black;
+    float: left; width: 8px; height: 8px; margin: 3px 5px 0 0; border: black; border-style:solid; border-width:thin;
 }
 
 #leftcontent h3 {

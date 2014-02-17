@@ -233,7 +233,7 @@ function getPATRIC_ExtraReplicons(_gids, _sids){
 							_sid_list.append('<li><div class="smallbox" style="background: white"></div><a href="#" onclick="displayPath(undefined,'+"'"+cur_sids[j]+"'"+'); return false;">'+_locations[cur_sids[j]].description+'</a></li>');
 						}
 						else {
-							_missing_replicons.push('<li style="text-color:#DFDFDF;"><div class="smallbox" style="background: white"></div>'+_locations[cur_sids[j]].description+'</li>');
+							_missing_replicons.push('<li style="text-color:#DFDFDF;"><div class="smallbox" style="background: white; border-style:none;"></div>'+_locations[cur_sids[j]].description+'</li>');
 						}		
 					}
 					for (var k in _missing_replicons){
