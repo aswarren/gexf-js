@@ -244,8 +244,8 @@ function getPATRIC_ExtraReplicons(_gids, _sids){
 			},
 			
 			error: function(xhr, ajaxOptions, thrownError){
-				alert(xhr.status);
-				alert(thrownError);
+				console.log(xhr.status);
+				console.log(thrownError);
 				GexfJS.params.patric_locations=undefined;
 			}
 		});		
