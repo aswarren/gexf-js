@@ -244,9 +244,10 @@ function getPATRIC_ExtraReplicons(_gids, _sids){
 			},
 			
 			error: function(xhr, ajaxOptions, thrownError){
-				console.log(xhr.status);
-				console.log(thrownError);
+				alert(xhr.status);
+				alert(thrownError);
 				GexfJS.params.patric_locations=undefined;
+				GexfJS.params.patric_on= false;
 			}
 		});		
 }	
@@ -322,7 +323,9 @@ function replaceLocationLinks(location_ref) {
 		locations[i]=_info.join(':');
 	}
 	location_ref.html(locations.join('<br>'));
-	getPATRICLocations(location_ref, locations_obj, location_order);
+	if (GexfJS.params.patric_on){
+		getPATRICLocations(location_ref, locations_obj, location_order);
+	}
 }
 	
 
@@ -1008,6 +1011,7 @@ function setParams(paramlist) {
     for (var i in paramlist) {
         GexfJS.params[i] = paramlist[i];
     }
+    GexfJS.params.patric_on= true;
 }
 
 $(document).ready(function() {
