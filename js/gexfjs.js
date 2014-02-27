@@ -299,6 +299,7 @@ function getPATRICLocations(location_ref, locations, location_order){
 				alert(xhr.status);
 				alert(thrownError);
 				GexfJS.params.patric_locations=undefined;
+				GexfJS.params.patric_on= false;
 			}
 			
 		});
