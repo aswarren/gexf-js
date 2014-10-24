@@ -574,12 +574,13 @@ function loadGraph() {
 	accepts: "application/xml",
         success: function(data) {
             var _s = new Date();
+            var _m = $(data).find("meta"),
+                _org_map =  _m.children().filter("org_map").children();
+                _contig_map = _m.children().filter("contig_map").children();
+                _edge_map = _m.children().filter("edge_map").children();
             var _g = $(data).find("graph"),
                 _nodes = _g.children().filter("nodes").children(),
                 _edges = _g.children().filter("edges").children();
-                _org_map =  _g.children().filter("meta").filter("org_map").children();
-                _contig_map = _g.children().filter("meta").filter("contig_map").children();
-                _edge_map = _g.children().filter("meta").filter("edge_map").children();
             _node_attr=_g.children().filter("attributes").filter(".node").children();
             _edge_attr=_g.children().filter("attributes").filter(".edge").children();
             GexfJS._node_attr={};
