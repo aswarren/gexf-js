@@ -575,8 +575,8 @@ function loadGraph() {
         success: function(data) {
             var _s = new Date();
             var _m = $(data).find("meta"),
-                _org_map =  $.parseJSON(_m.children().filter("org_map").contents()[0]replace("<![CDATA[", "").replace("]]>", ""));
-                _contig_map = $.parseJSON(_m.children().filter("contig_map").contents()[0]replace("<![CDATA[", "").replace("]]>", ""));
+                _org_map =  $.parseJSON(_m.children().filter("org_map").contents()[0].replace("<![CDATA[", "").replace("]]>", ""));
+                _contig_map = $.parseJSON(_m.children().filter("contig_map").contents()[0].replace("<![CDATA[", "").replace("]]>", ""));
                 _edge_map = $.parseJSON(_m.children().filter("edge_map").contents()[0].replace("<![CDATA[", "").replace("]]>", ""));
             var _g = $(data).find("graph"),
                 _nodes = _g.children().filter("nodes").children(),
