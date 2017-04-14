@@ -33,8 +33,8 @@ setParams({
     maxEdgeWidth : 1,
     textDisplayThreshold: 9,
     nodeSizeFactor : 1,
-    location_url: 'http://polyomic.patricbrc.org/sequenceinfo/?eq(sid,or(SIDSTRING))&select(sid,description)&facet((pivot,(gid,genome_name_sort,sid)))',
-    replicon_url: 'http://polyomic.patricbrc.org/sequenceinfo/?and(eq(gid,or(GIDSTRING)),not(eq(sid,or(SIDSTRING))))&select(sid,description)&facet((pivot,(gid,genome_name_sort,sid)))',
+    location_url: 'https://www.patricbrc.org/api/genome_sequence?in(sequence_id,(SIDSTRING))&select(sequence_id,description)&facet((pivot,(genome_id,genome_name,sequence_id)))&http_accept=application/solr+json',
+    replicon_url: 'https://www.patricbrc.org/api/genome_sequence?in(genome_id,(GIDSTRING))&select(sequence_id,description)&facet((pivot,(genome_id,genome_name,sequence_id)))&http_accept=application/solr+json',
         /*
             Change this parameter for smaller or larger nodes
            this setting can't be changed from the User Interface
