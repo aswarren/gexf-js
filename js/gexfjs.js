@@ -574,10 +574,21 @@ function loadGraph() {
 	accepts: "application/xml",
         success: function(data) {
             var _s = new Date();
-            var _m = $(data).find("meta"),
-                _org_map =  $.parseJSON(_m.children().filter("org_map").contents()[0].data.replace("<![CDATA[", "").replace("]]>", ""));
-                _contig_map = $.parseJSON(_m.children().filter("contig_map").contents()[0].data.replace("<![CDATA[", "").replace("]]>", ""));
-                _edge_map = $.parseJSON(_m.children().filter("edge_map").contents()[0].data.replace("<![CDATA[", "").replace("]]>", ""));
+            var _m = $(data).find("meta");
+            if (_m.length > 0){
+                var _org_map =  _m.children().filter("org_map");
+                if (_org_map.length > 0){
+                    _org_map= $.parseJSON(_org_map.contents()[0].data.replace("<![CDATA[", "").replace("]]>", ""));
+                }
+                var _contig_map =  _m.children().filter("contig_map");
+                if (_contig_map.length > 0){
+                    _contig_map= $.parseJSON(_contig_map.contents()[0].data.replace("<![CDATA[", "").replace("]]>", ""));
+                }
+                var _edge_map =  _m.children().filter("edge_map");
+                if (_edge_map.length > 0){
+                    _edge_map= $.parseJSON(_edge_map.contents()[0].data.replace("<![CDATA[", "").replace("]]>", ""));
+                }
+            }
             var _g = $(data).find("graph"),
                 _nodes = _g.children().filter("nodes").children(),
                 _edges = _g.children().filter("edges").children();
