@@ -56,7 +56,7 @@ var GexfJS = {
             "nodes" : "Nodes",
             "inLinks" : "Inbound Links from :",
             "outLinks" : "Outbound Links to :",
-            "undirLinks" : "Undirected links with :",
+            "undirLinks" : "Neighbors :",
             "lensOn" : "Activate lens mode",
             "lensOff" : "Deactivate lens mode",
             "edgeOn" : "Show edges",
@@ -188,6 +188,28 @@ function replaceURLWithHyperlinks(text) {
     return text;
 }
 
+
+function Color(_r, _g, _b) {
+    var r, g, b;
+    var setColors = function(_r, _g, _b) {
+        r = _r;
+        g = _g;
+        b = _b;
+    };
+
+    setColors(_r, _g, _b);
+    this.getColors = function() {
+        var colors = {
+            r: r,
+            g: g,
+            b: b
+        };
+        return colors;
+    };
+}
+
+
+
 function parsePATRIC_GID_Pivot(data, _gids, _sids){
 	_genome_menu={};
 	//pivot structure gid,genome_name,sid
@@ -225,12 +247,12 @@ function getPATRIC_ExtraReplicons(_gids, _sids){
 				//setup high level numbers
 				for (var g in _extras_menu){
 					num_sid=(_genome_menu[g].sids.length + _extras_menu[g].sids.length).toString();
-					$( "#"+g+"_num" ).append(' of <a href="#" onclick="displayPath(undefined,'+"'"+(_extras_menu[g].sids.concat(_genome_menu[g].sids)).join()+"'"+'); return false;">'+num_sid+'</a>');
+					$( "#"+g+"_num" ).append(' of <a href="#" onclick="displayPath(undefined,'+"'"+(_extras_menu[g].sids.concat(_genome_menu[g].sids)).join()+"'"+',undefined); return false;">'+num_sid+'</a>');
 					_sid_list=$( "#"+g+"_sids" );
 					_missing_replicons=[]
 					for (var j in cur_sids= _extras_menu[g].sids){
 						if (cur_sids[j] in GexfJS.path_highlights){
-							_sid_list.append('<li><div class="smallbox" style="background: white"></div><a href="#" onclick="displayPath(undefined,'+"'"+cur_sids[j]+"'"+'); return false;">'+_locations[cur_sids[j]].description+'</a></li>');
+							_sid_list.append('<li><div class="smallbox" style="background: white"></div><a href="#" onclick="displayPath(undefined,'+"'"+cur_sids[j]+"'"+',undefined); return false;">'+_locations[cur_sids[j]].description+'</a></li>');
 						}
 						else {
 							_missing_replicons.push('<li style="text-color:#DFDFDF;"><div class="smallbox" style="background: white; border-style:none;"></div>'+_locations[cur_sids[j]].description+'</li>');
@@ -281,10 +303,10 @@ function getPATRICLocations(location_ref, locations, location_order){
 				result.push('<div id="genome_list" >\n');
 				for (var g in _genome_menu){
 					num_sid=_genome_menu[g].sids.length.toString();
-					result.push('<h6 id="'+g+'_header">'+_genome_menu[g].genome_name+' (<span id="'+g+'_num" ><a href="#" onclick="displayPath(undefined,'+"'"+_genome_menu[g].sids.join(',')+"'"+'); return false;">'+num_sid+'</a></span>)</h6>\n<div>\n');
+					result.push('<h6 id="'+g+'_header">'+_genome_menu[g].genome_name+' (<span id="'+g+'_num" ><a href="#" onclick="displayPath(undefined,'+"'"+_genome_menu[g].sids.join(',')+"'"+',undefined); return false;">'+num_sid+'</a></span>)</h6>\n<div>\n');
 					result.push('<ul id = '+g+'_sids >\n');
 					for (var j in sid_list=_genome_menu[g].sids){
-						result.push('<li> <div class="smallbox" style="background: black"></div>'+'<a href="#" onclick="displayPath(undefined,'+"'"+sid_list[j]+"'"+'); return false;">'+_locations[sid_list[j]].description+'</a>: '+_locations[sid_list[j]].base)+' </li>/n';
+						result.push('<li> <div class="smallbox" style="background: black"></div>'+'<a href="#" onclick="displayPath(undefined,'+"'"+sid_list[j]+"'"+',undefined); return false;">'+_locations[sid_list[j]].description+'</a>: '+_locations[sid_list[j]].base)+' </li>/n';
 					}
 					result.push('</ul>\n</div>\n');
 				}
@@ -306,6 +328,56 @@ function getPATRICLocations(location_ref, locations, location_order){
 	}
 }
 
+
+function namePATRICGenomes(feature_ref, genome_map){
+		var location_url=GexfJS.params.genome_url.replace('GIDSTRING',Object.keys(genome_map).join(','));
+		$.ajax({
+			url: location_url, 	
+        		dataType: "json",
+        		success: function(data) {
+                    var html_str = feature_ref.html();
+                    if ("response" in data && "docs" in data["response"]){
+                        $.each(data["response"]["docs"], function(i,record){
+                            html_str = html_str.replace(">"+record["genome_id"]+"<",">"+record["genome_name"]+"<");
+                        });
+                        feature_ref.html(html_str);
+                    }
+                },
+                error: function(xhr, ajaxOptions, thrownError){
+                    alert(xhr.status);
+                    alert(thrownError);
+                }
+			
+		});
+}
+
+
+function replaceFeatureLinks(feature_ref, title_ref) {
+	var feature_str=feature_ref.text();
+    genome_map = JSON.parse(feature_str);
+    html_list=[];
+    sids=[];
+    $.each(genome_map, function(gid,seq_map){
+        $.each(seq_map, function(sid,features){
+            sids.push(sid);
+            _info ='<a href="#" onclick="displayPath(undefined,'+"'"+gid+"'"+","+"'"+GexfJS._edge_attr_value["genomes"]+"'"+'); return false;">'+gid+'</a>'+
+                ':<br>'+'<a href="#" onclick="displayPath(undefined,'+"'"+sid+"'"+',undefined); return false;">'+sid+'</a>'+
+                ":<br>["+features+"]";
+            html_list.push(_info);
+        });                            
+    });
+    feature_ref.html(html_list.join('<br>'));
+    if(title_ref.length >0){
+        _info ='<h4> <a href="#" onclick="displayPath(undefined,'+"'"+Object.keys(genome_map).join(',')+"'"+","+"'"+GexfJS._edge_attr_value["genomes"]+"'"+'); return false;">'+"Genomes:"+'</a>&nbsp;'+
+                '<a href="#" onclick="displayPath(undefined,'+"'"+sids.join(',')+"'"+',undefined); return false;">'+"Sequences:"+'</a>&nbsp;'+"[Features]</h4>";
+        title_ref.html(_info);
+    }
+	if (GexfJS.params.patric_on){
+		namePATRICGenomes(feature_ref, genome_map);
+	}
+}
+
+
 function replaceLocationLinks(location_ref) {
 	var location_str=location_ref.text();
 	var locations=location_str.split(/[ ,]+/);
@@ -319,7 +391,7 @@ function replaceLocationLinks(location_ref) {
 				base: _info[1]
 			};
 			location_order.push(_info[0]);
-			_info[0]='<a href="#" onclick="displayPath(undefined,'+"'"+_info[0]+"'"+'); return false;">'+_info[0]+'</a>';
+			_info[0]='<a href="#" onclick="displayPath(undefined,'+"'"+_info[0]+"'"+',undefined); return false;">'+_info[0]+'</a>';
 		}
 		locations[i]=_info.join(':');
 	}
@@ -330,7 +402,7 @@ function replaceLocationLinks(location_ref) {
 }
 	
 
-function displayPath(_eid, _path_str){
+function displayPath(_eid, _path_str, _path_attr){
 	GexfJS.params.activeEdges={};
 	if(typeof _eid !== "undefined"){
 		var _e = GexfJS.graph.edgeLookup[_eid];
@@ -338,6 +410,9 @@ function displayPath(_eid, _path_str){
 	else{
 		var _e = undefined;
 	}
+    if(typeof _path_attr == "undefined"){
+        _path_attr = GexfJS.params.pathAttr;
+    }
 	//var _e = (typeof _eid !== undefined ? GexfJS.graph.edgeLookup[_eid] : undefined);
 	var _pathList=undefined;
 	if (typeof _e !== "undefined"){
@@ -349,7 +424,8 @@ function displayPath(_eid, _path_str){
 	//var _pathList = (typeof _e !== "undefined" ? _e.path : (typeof _path_str !== "undefined" ? _path_str.split(/[ ,]+/) : undefined));
 		
 	for (var i in _pathList){
-		var _elist=GexfJS.path_highlights[_pathList[i]];
+		var _elist=GexfJS.path_highlights[_path_attr][_pathList[i]];
+        //var _elist=GexfJS.path_highlights[_pathList[i]]
 		for (var target_id in _elist){
 			//var target_edge=GexfJS.graph.edgeLookup[target_id];
 	                GexfJS.params.activeEdges[target_id]=true;
@@ -375,17 +451,20 @@ function displayNode(_nodeIndex, _recentre) {
             });
         _str += '<h3><div class="largepill" style="background: ' + _d.color.base +'"></div>' + _d.label + '</h3>';
         _str += '<h4>' + strLang("nodeAttr") + '</h4>';
-        _str += '<ul><li><b>id</b> : ' + _d.id + '</li>';
-        for (var i in _d.attributes) {
+        _str += '<ul><li><b>node id</b> : ' + _d.id + '</li>';
+        var sort_attr = Object.keys(GexfJS._node_attr_value).sort();
+        for (var x in sort_attr) {
+            var y = sort_attr[x];
+            var i = GexfJS._node_attr_value[y];
             var attr_name=(GexfJS._node_attr[i] || strLang(i));
-            _str += '<li><b>' + attr_name + '</b> : ' + '<div class="attribute_box" id="left_'+attr_name+'">'+replaceURLWithHyperlinks( _d.attributes[i] ) +'</div>'+ '</li>';
+                _str += '<li><b><div style="display: initial" id="left_title_'+attr_name+'":>'+ attr_name +'</div>'+ '</b> ' + '<div class="attribute_box" id="left_'+attr_name+'">'+replaceURLWithHyperlinks( _d.attributes[i] ) +'</div>'+ '</li>';
         }
         _str += '</ul><h4>' + ( GexfJS.graph.directed ? strLang("inLinks") : strLang("undirLinks") ) + '</h4><ul>';
         for (var i in GexfJS.graph.edgeList) {
             var _e = GexfJS.graph.edgeList[i]
             if ( _e.target == _nodeIndex ) {
                 var _n = GexfJS.graph.nodeList[_e.source];
-                _str += '<li><div class="smallpill" style="background: ' + _n.color.base +'"></div><a href="#" onmouseover="GexfJS.params.activeNode = ' + _e.source + '" onclick="displayNode(' + _e.source + ', true); return false;">' + _n.label + '</a>' + ( GexfJS.params.showEdgeWeight && _e.weight ? '<a href="#" onclick="displayPath('+_e.id+',undefined); return false;">'+' [' + _e.weight + ']</a>' : '') + '</li>';
+                _str += '<li><div class="smallpill" style="background: ' + _n.color.base +'"></div><a href="#" onmouseover="GexfJS.params.activeNode = ' + _e.source + '" onclick="displayNode(' + _e.source + ', true); return false;">' + _n.label + '</a>' + ( GexfJS.params.showEdgeWeight && _e.weight ? '<a href="#" onclick="displayPath('+_e.id+',undefined,undefined); return false;">'+' [' + _e.weight + ']</a>' : '') + '</li>';
             }
         }
         if (GexfJS.graph.directed) _str += '</ul><h4>' + strLang("outLinks") + '</h4><ul>';
@@ -393,15 +472,20 @@ function displayNode(_nodeIndex, _recentre) {
             var _e = GexfJS.graph.edgeList[i]
             if ( _e.source == _nodeIndex ) {
                 var _n = GexfJS.graph.nodeList[_e.target];
-                _str += '<li><div class="smallpill" style="background: ' + _n.color.base +'"></div><a href="#" onmouseover="GexfJS.params.activeNode = ' + _e.target + '" onclick="displayNode(' + _e.target + ', true); return false;">' + _n.label + '</a>' + ( GexfJS.params.showEdgeWeight && _e.weight ? '<a href="#" onclick="displayPath('+_e.id+',undefined); return false;">'+' [' + _e.weight + ']</a>' : '') + '</li>';
+                _str += '<li><div class="smallpill" style="background: ' + _n.color.base +'"></div><a href="#" onmouseover="GexfJS.params.activeNode = ' + _e.target + '" onclick="displayNode(' + _e.target + ', true); return false;">' + _n.label + '</a>' + ( GexfJS.params.showEdgeWeight && _e.weight ? '<a href="#" onclick="displayPath('+_e.id+',undefined,undefined); return false;">'+' [' + _e.weight + ']</a>' : '') + '</li>';
             }
         }
         _str += '</ul><p></p>';
         $("#leftcontent").html(_str);
         var location_ref= $("#left_locations");
-	if (location_ref){
-		replaceLocationLinks(location_ref);
-	}
+        if (location_ref.length > 0){
+            replaceLocationLinks(location_ref);
+        }
+        var features_ref= $("#left_features");
+        var features_title= $("#left_title_features");
+        if (features_ref.length >0){
+            replaceFeatureLinks(features_ref, features_title);
+        }
         if (_recentre) {
             GexfJS.params.centreX = _b.x;
             GexfJS.params.centreY = _b.y;
@@ -507,6 +591,14 @@ function onOverviewMove(evt) {
     }
 }
 
+function Interpolate(start, end, steps, count) {
+    var s = start,
+        e = end,
+        final = s + (((e - s) / steps) * count);
+    return Math.floor(final);
+}
+
+
 function onGraphScroll(evt, delta) {
     GexfJS.totalScroll += delta;
     if (Math.abs(GexfJS.totalScroll) >= 1) {
@@ -576,17 +668,17 @@ function loadGraph() {
             var _s = new Date();
             var _m = $(data).find("meta");
             if (_m.length > 0){
-                var _org_map =  _m.children().filter("org_map");
-                if (_org_map.length > 0){
-                    _org_map= $.parseJSON(_org_map.contents()[0].data.replace("<![CDATA[", "").replace("]]>", ""));
+                var _org_map_xml =  _m.children().filter("org_map");
+                if (_org_map_xml.length > 0){
+                    _org_map= $.parseJSON(_org_map_xml.contents()[0].data.replace("<![CDATA[", "").replace("]]>", ""));
                 }
-                var _contig_map =  _m.children().filter("contig_map");
-                if (_contig_map.length > 0){
-                    _contig_map= $.parseJSON(_contig_map.contents()[0].data.replace("<![CDATA[", "").replace("]]>", ""));
+                var _contig_map_xml =  _m.children().filter("contig_map");
+                if (_contig_map_xml.length > 0){
+                    _contig_map= $.parseJSON(_contig_map_xml.contents()[0].data.replace("<![CDATA[", "").replace("]]>", ""));
                 }
-                var _edge_map =  _m.children().filter("edge_map");
-                if (_edge_map.length > 0){
-                    _edge_map= $.parseJSON(_edge_map.contents()[0].data.replace("<![CDATA[", "").replace("]]>", ""));
+                var _edge_map_xml =  _m.children().filter("edge_map");
+                if (_edge_map_xml.length > 0){
+                    _edge_map= $.parseJSON(_edge_map_xml.contents()[0].data.replace("<![CDATA[", "").replace("]]>", ""));
                 }
             }
             var _g = $(data).find("graph"),
@@ -605,15 +697,37 @@ function loadGraph() {
                 GexfJS._node_attr[_id]=_value;
                 GexfJS._node_attr_value[_value]=_id;
             });
+            GexfJS.path_highlights={};
             $(_edge_attr).each(function() {
                 var n_attr =$(this);
                 _id=n_attr.attr("id");
                 _value=n_attr.attr("title");
                 GexfJS._edge_attr[_id]=_value;
                 GexfJS._edge_attr_value[_value]=_id;
+                GexfJS.path_highlights[_id]={};
             });
+            GexfJS._start_color = new Color(229, 227, 0);//yellow
+            GexfJS._end_color = new Color(191, 0, 30); //red
+            if (GexfJS.params.colorNodeAttr in GexfJS._node_attr_value){
+                GexfJS.params.colorNodeAttr = GexfJS._node_attr_value[GexfJS.params.colorNodeAttr];
+            }
+            else if ("weight" in GexfJS._node_attr_value){
+                GexfJS.params.colorNodeAttr = GexfJS._node_attr_value["weight"];
+            }
+            else if ("diversity" in GexfJS._node_attr_value){
+                GexfJS.params.colorNodeAttr = GexfJS._node_attr_value["diversity"];
+            }
+            else{
+                GexfJS.params.colorNodeAttr = null;
+            } 
             if (GexfJS.params.pathAttr in GexfJS._edge_attr_value){
                 GexfJS.params.pathAttr = GexfJS._edge_attr_value[GexfJS.params.pathAttr];
+            }
+            else if("replicons" in GexfJS._edge_attr_value){
+                GexfJS.params.pathAttr = GexfJS._edge_attr_value["replicons"];
+            }
+            else if("sequences" in GexfJS._edge_attr_value){
+                GexfJS.params.pathAttr = GexfJS._edge_attr_value["sequences"];
             }
             GexfJS.graph = {
                 directed : ( _g.attr("defaultedgetype") == "directed" ),
@@ -659,6 +773,33 @@ function loadGraph() {
                     _g = _col.attr("g"),
                     _b = _col.attr("b"),
                     _attr = _n.find("attvalue");
+                    _self=this;
+                    if(GexfJS.params.colorNodeAttr != null){
+                        $(_attr).each( function(i,_f) {
+                            if(_f.getAttribute("for")==GexfJS.params.colorNodeAttr){
+                                var weight = parseFloat(_f.getAttribute("value"));
+                                var weight2 = weight *100;
+                                _r = String(Interpolate(GexfJS._start_color.getColors().r, GexfJS._end_color.getColors().r, 100, weight2));
+                                _g = String(Interpolate(GexfJS._start_color.getColors().g, GexfJS._end_color.getColors().g, 100, weight2));
+                                _b = String(Interpolate(GexfJS._start_color.getColors().b, GexfJS._end_color.getColors().b, 100, weight2));
+                            }
+                        });
+                    }
+                         
+                    if(GexfJS.params.featureMapOn){
+                        $(_attr).each( function(_f) {
+                            if(_f.getAttribute("for")==GexfJS._node_attr_value["features"]){
+                                genome_map = JSON.parse(getAttribute("value"));
+                                $.each(genome_map, function(gid,seq_map){
+                                    GexfJS._genomeMap[gid]=Object.keys(seq_map);
+                                    $.each(seq_map, function(sid,features){
+                                        GexfJS._seqMap[sid]=features;
+                                    });                            
+                                });
+                            }
+                        });
+                    }
+                    
                 _d.coords = {
                     base : {
                         x : _deltax + _echelle * _x,
@@ -691,26 +832,43 @@ function loadGraph() {
                 GexfJS.ctxMini.fill();
             });
             //used in combination with pathAttr, path_highlights links the replicon id to edges
-            GexfJS.path_highlights={};
             $(_edges).each(function() {
+                var pathList=[];
                 var _e = $(this),
                     _sid = _e.attr("source"),
                     _six = GexfJS.graph.nodeIndexById.indexOf(_sid);
                     _tid = _e.attr("target"),
                     _tix = GexfJS.graph.nodeIndexById.indexOf(_tid);
                     _w = _e.find('attvalue[for="weight"]').attr('value') || _e.attr('weight');
-                    _pattr=_e.find('attvalue[for="'+GexfJS.params.pathAttr+'"]').attr('value'),
-                    _p = ( _pattr ? _pattr.split(/[ ,]+/) : _e.attr("path"));
                     _col = _e.find("viz\\:color,color");
                     _eid = _e.attr("id");
+
+                    /*_pattr=_e.find('attvalue[for="'+GexfJS.params.pathAttr+'"]').attr('value'),
+                    _p = ( _pattr ? _pattr.split(/[ ,]+/) : _e.attr("path"));
+                    $(_p).each(function(i, _path) {
+                        if (!(_path in GexfJS.path_highlights)){
+                            GexfJS.path_highlights[_path]={}
+                        }
+                        GexfJS.path_highlights[_path][_eid] = true;
+                    });*/
+
+
+
+                    $.each( GexfJS._edge_attr_value, function(k, cur_attr){
+                        _pattr=_e.find('attvalue[for="'+cur_attr+'"]').attr('value');
+                        _p = ( _pattr ? _pattr.split(/[ ,]+/) : _e.attr("path"));
+                        if(cur_attr == GexfJS.params.pathAttr){
+                            pathList=_p;
+                        }
+                        $(_p).each(function(i, _path) {
+                            if (!(_path in GexfJS.path_highlights[cur_attr])){
+                                GexfJS.path_highlights[cur_attr][_path]={}
+                            }
+                            GexfJS.path_highlights[cur_attr][_path][_eid] = true;
+                        });
+                    });
                 
                     
-                $(_p).each(function(i, _path) {
-			if (!(_path in GexfJS.path_highlights)){
-			    GexfJS.path_highlights[_path]={}
-			}
-			GexfJS.path_highlights[_path][_eid] = true;
-		});
 
                 if (_col.length) {
                     var _r = _col.attr("r"),
@@ -735,7 +893,7 @@ function loadGraph() {
                     width : Math.max( GexfJS.params.minEdgeWidth, Math.min( GexfJS.params.maxEdgeWidth, ( _w || 1 ) ) ) * _echelle,
                     weight : parseFloat(_w || 0),
                     color : "rgba(" + _r + "," + _g + "," + _b + ",.7)",
-                    path : _p,
+                    path : pathList,
                     id : _eid
                 });
                 GexfJS.graph.edgeLookup[_eid]=GexfJS.graph.edgeList[GexfJS.graph.edgeList.length-1];

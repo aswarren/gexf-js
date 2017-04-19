@@ -28,18 +28,21 @@ setParams({
             Change this parameter for wider or narrower edges
             this setting can't be changed from the User Interface
         */
-    pathAttr : "replicons",
+    pathAttr : "sequences",
+    colorNodeAttr : "diversity",
+    featureMapOn: false,
     minEdgeWidth : 0.2,
     maxEdgeWidth : 1,
     textDisplayThreshold: 9,
     nodeSizeFactor : 1,
+    genome_url: 'https://www.patricbrc.org/api/genome_sequence?in(genome_id,(GIDSTRING))&select(genome_id,genome_name)&http_accept=application/solr+json',
     location_url: 'https://www.patricbrc.org/api/genome_sequence?in(sequence_id,(SIDSTRING))&select(sequence_id,description)&facet((pivot,(genome_id,genome_name,sequence_id)))&http_accept=application/solr+json',
     replicon_url: 'https://www.patricbrc.org/api/genome_sequence?in(genome_id,(GIDSTRING))&select(sequence_id,description)&facet((pivot,(genome_id,genome_name,sequence_id)))&http_accept=application/solr+json',
         /*
             Change this parameter for smaller or larger nodes
            this setting can't be changed from the User Interface
         */
-    replaceUrls : true,
+    replaceUrls : false,
         /*
             Enable the replacement of Urls by Hyperlinks
             this setting can't be changed from the User Interface
