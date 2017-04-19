@@ -368,8 +368,8 @@ function replaceFeatureLinks(feature_ref, title_ref) {
     });
     feature_ref.html(html_list.join('<br>'));
     if(title_ref.length >0){
-        _info ='<h4> <a href="#" onclick="displayPath(undefined,'+"'"+Object.keys(genome_map).join(',')+"'"+","+"'"+GexfJS._edge_attr_value["genomes"]+"'"+'); return false;">'+"Genomes:"+'</a>&nbsp;'+
-                '<a href="#" onclick="displayPath(undefined,'+"'"+sids.join(',')+"'"+',undefined); return false;">'+"Sequences:"+'</a>&nbsp;'+"[Features]</h4>";
+        _info ='<a href="#" onclick="displayPath(undefined,'+"'"+Object.keys(genome_map).join(',')+"'"+","+"'"+GexfJS._edge_attr_value["genomes"]+"'"+'); return false;">'+"Genomes["+String(Object.keys(genome_map).length)+']:</a>&nbsp;'+
+                '<a href="#" onclick="displayPath(undefined,'+"'"+sids.join(',')+"'"+',undefined); return false;">'+"Sequences["+String(sids.length)+']:</a>&nbsp;'+"[Features]";
         title_ref.html(_info);
     }
 	if (GexfJS.params.patric_on){
