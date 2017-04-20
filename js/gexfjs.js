@@ -26,7 +26,7 @@ var GexfJS = {
     },
     oldParams : {},
     minZoom : -3,
-    maxZoom : 10,
+    maxZoom : 12,
     overviewWidth : 200,
     overviewHeight : 175,
     baseWidth : 800,
@@ -337,8 +337,10 @@ function namePATRICGenomes(feature_ref, genome_map){
         		success: function(data) {
                     var html_str = feature_ref.html();
                     if ("response" in data && "docs" in data["response"]){
-                        $.each(data["response"]["docs"], function(i,record){
-                            html_str = html_str.replace(">"+record["genome_id"]+"<",">"+record["genome_name"]+"<");
+                        $.each(data["response"]["docs"], function(i){
+                            var record = data["response"]["docs"][i];
+                            var re = new RegExp(">"+record["genome_id"]+"<", "g")
+                            html_str = html_str.replace(re,">"+record["genome_name"]+"<");
                         });
                         feature_ref.html(html_str);
                     }
@@ -832,6 +834,7 @@ function loadGraph() {
                 GexfJS.ctxMini.fill();
             });
             //used in combination with pathAttr, path_highlights links the replicon id to edges
+            var counter =0;
             $(_edges).each(function() {
                 var pathList=[];
                 var _e = $(this),
@@ -842,6 +845,12 @@ function loadGraph() {
                     _w = _e.find('attvalue[for="weight"]').attr('value') || _e.attr('weight');
                     _col = _e.find("viz\\:color,color");
                     _eid = _e.attr("id");
+                    //for some reason layout sometimes leaves off edge id
+                    //if(typeof _eid === "undefined"){
+                        _eid = String(counter);
+                        _e.attr("id", String(counter));
+                    //}
+                    counter+=1;
 
                     /*_pattr=_e.find('attvalue[for="'+GexfJS.params.pathAttr+'"]').attr('value'),
                     _p = ( _pattr ? _pattr.split(/[ ,]+/) : _e.attr("path"));
@@ -851,7 +860,6 @@ function loadGraph() {
                         }
                         GexfJS.path_highlights[_path][_eid] = true;
                     });*/
-
 
 
                     $.each( GexfJS._edge_attr_value, function(k, cur_attr){
