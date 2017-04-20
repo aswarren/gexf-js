@@ -188,6 +188,22 @@ function replaceURLWithHyperlinks(text) {
     return text;
 }
 
+function makeTextDownload (text) {
+    var data = new Blob([text], {type: 'text/plain'});
+
+    // If we are replacing a previously generated file we need to
+    // manually revoke the object URL to avoid memory leaks.
+    if (GexfJS.textFileUrl !== null) {
+      window.URL.revokeObjectURL(GexfJS.textFileUrl);
+    }
+
+    // returns a URL you can use as a href
+    GexfJS.textFileUrl = window.URL.createObjectURL(data);
+
+    return;
+}
+
+
 
 function Color(_r, _g, _b) {
     var r, g, b;
@@ -908,6 +924,11 @@ function loadGraph() {
             });
             
             GexfJS.imageMini = GexfJS.ctxMini.getImageData(0, 0, GexfJS.overviewWidth, GexfJS.overviewHeight);
+            var xmlString = (new XMLSerializer()).serializeToString(data);
+            GexfJS.textFileUrl = null;
+            makeTextDownload(xmlString);
+            var downloadLink='<a href='+GexfJS.textFileUrl+' download="pg_graph.gexf">Save Gexf</a>';
+            $("#maintitle").html("<h1>"+downloadLink+"</h1>");
         
         //changeNiveau(0);
         }
