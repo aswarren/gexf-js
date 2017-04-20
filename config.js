@@ -35,7 +35,7 @@ setParams({
     maxEdgeWidth : 1,
     textDisplayThreshold: 6,
     nodeSizeFactor : 1,
-    genome_url: 'https://www.patricbrc.org/api/genome?in(genome_id,(GIDSTRING))&select(genome_id,genome_name)&http_accept=application/solr+json',
+    genome_url: 'https://www.patricbrc.org/api/genome?in(genome_id,(GIDSTRING))&select(genome_id,genome_name)&limit(500)&http_accept=application/solr+json',
     location_url: 'https://www.patricbrc.org/api/genome_sequence?in(sequence_id,(SIDSTRING))&select(sequence_id,description)&facet((pivot,(genome_id,genome_name,sequence_id)))&http_accept=application/solr+json',
     replicon_url: 'https://www.patricbrc.org/api/genome_sequence?in(genome_id,(GIDSTRING))&select(sequence_id,description)&facet((pivot,(genome_id,genome_name,sequence_id)))&http_accept=application/solr+json',
         /*
