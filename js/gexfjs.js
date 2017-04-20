@@ -187,7 +187,7 @@ function replaceURLWithHyperlinks(text) {
     }
     return text;
 }
-
+//create blob for xml
 function makeTextDownload (text) {
     var data = new Blob([text], {type: 'text/plain'});
 
