@@ -609,6 +609,7 @@ function onOverviewMove(evt) {
     }
 }
 
+//divide color value into steps
 function Interpolate(start, end, steps, count) {
     var s = start,
         e = end,
