@@ -649,7 +649,7 @@ function onGraphScroll(evt, delta) {
     }
 }
 
-function initializeMap() {
+function initializeMap(data) {
     clearInterval(GexfJS.timeRefresh);
     GexfJS.oldParams = {};
     GexfJS.ctxGraphe.clearRect(0, 0, GexfJS.graphZone.width, GexfJS.graphZone.height);
@@ -674,8 +674,263 @@ function initializeMap() {
     });
     GexfJS.timeRefresh = setInterval(traceMap,60);
     GexfJS.graph = null;
-    loadGraph();
+    if (typeof data === "undefined"){
+        loadGraph();
+    }
 }
+
+//given xml data structure
+function createGraph(data){
+
+        var _s = new Date();
+        var _m = $(data).find("meta");
+        if (_m.length > 0){
+            var _org_map_xml =  _m.children().filter("org_map");
+            if (_org_map_xml.length > 0){
+                _org_map= $.parseJSON(_org_map_xml.contents()[0].data.replace("<![CDATA[", "").replace("]]>", ""));
+            }
+            var _contig_map_xml =  _m.children().filter("contig_map");
+            if (_contig_map_xml.length > 0){
+                _contig_map= $.parseJSON(_contig_map_xml.contents()[0].data.replace("<![CDATA[", "").replace("]]>", ""));
+            }
+            var _edge_map_xml =  _m.children().filter("edge_map");
+            if (_edge_map_xml.length > 0){
+                _edge_map= $.parseJSON(_edge_map_xml.contents()[0].data.replace("<![CDATA[", "").replace("]]>", ""));
+            }
+        }
+        var _g = $(data).find("graph"),
+            _nodes = _g.children().filter("nodes").children(),
+            _edges = _g.children().filter("edges").children();
+        _node_attr=_g.children().filter("attributes").filter(".node").children();
+        _edge_attr=_g.children().filter("attributes").filter(".edge").children();
+        GexfJS._node_attr={};
+        GexfJS._edge_attr={};
+        GexfJS._node_attr_value={};
+        GexfJS._edge_attr_value={};
+        $(_node_attr).each(function() {
+            var n_attr =$(this);
+            _id=n_attr.attr("id");
+            _value=n_attr.attr("title");
+            GexfJS._node_attr[_id]=_value;
+            GexfJS._node_attr_value[_value]=_id;
+        });
+        GexfJS.path_highlights={};
+        $(_edge_attr).each(function() {
+            var n_attr =$(this);
+            _id=n_attr.attr("id");
+            _value=n_attr.attr("title");
+            GexfJS._edge_attr[_id]=_value;
+            GexfJS._edge_attr_value[_value]=_id;
+            GexfJS.path_highlights[_id]={};
+        });
+        GexfJS._start_color = new Color(229, 227, 0);//yellow
+        GexfJS._end_color = new Color(191, 0, 30); //red
+        if (GexfJS.params.colorNodeAttr in GexfJS._node_attr_value){
+            GexfJS.params.colorNodeAttr = GexfJS._node_attr_value[GexfJS.params.colorNodeAttr];
+        }
+        else if ("weight" in GexfJS._node_attr_value){
+            GexfJS.params.colorNodeAttr = GexfJS._node_attr_value["weight"];
+        }
+        else if ("diversity" in GexfJS._node_attr_value){
+            GexfJS.params.colorNodeAttr = GexfJS._node_attr_value["diversity"];
+        }
+        else{
+            GexfJS.params.colorNodeAttr = null;
+        } 
+        if (GexfJS.params.pathAttr in GexfJS._edge_attr_value){
+            GexfJS.params.pathAttr = GexfJS._edge_attr_value[GexfJS.params.pathAttr];
+        }
+        else if("replicons" in GexfJS._edge_attr_value){
+            GexfJS.params.pathAttr = GexfJS._edge_attr_value["replicons"];
+        }
+        else if("sequences" in GexfJS._edge_attr_value){
+            GexfJS.params.pathAttr = GexfJS._edge_attr_value["sequences"];
+        }
+        GexfJS.graph = {
+            directed : ( _g.attr("defaultedgetype") == "directed" ),
+            source : data,
+            nodeList : [],
+            nodeIndexById : [],
+            nodeIndexByLabel : [],
+            edgeList : [],
+    edgeLookup : {}
+        }
+        var _xmin = 1e9, _xmax = -1e9, _ymin = 1e9, _ymax = -1e9; _marge = 30;
+        $(_nodes).each(function() {
+            var _n = $(this),
+            _pos = _n.find("viz\\:position,position"),
+            _x = _pos.attr("x"),
+            _y = _pos.attr("y");
+            _xmin = Math.min(_x, _xmin);
+            _xmax = Math.max(_x, _xmax);
+            _ymin = Math.min(_y, _ymin);
+            _ymax = Math.max(_y, _ymax);
+        });
+        
+        var _echelle = Math.min( ( GexfJS.baseWidth - _marge ) / ( _xmax - _xmin ) , ( GexfJS.baseHeight - _marge ) / ( _ymax - _ymin ) );
+        var _deltax = ( GexfJS.baseWidth - _echelle * ( _xmin + _xmax ) ) / 2;
+        var _deltay = ( GexfJS.baseHeight - _echelle * ( _ymin + _ymax ) ) / 2;
+        
+        GexfJS.ctxMini.clearRect(0, 0, GexfJS.overviewWidth, GexfJS.overviewHeight);
+        
+        $(_nodes).each( function() {
+            var _n = $(this),
+                _id = _n.attr("id"),
+                _label = _n.attr("label") || _id,
+                _d = {
+                    id: _id,
+                    label: _label
+                },
+                _pos = _n.find("viz\\:position,position"),
+                _x = _pos.attr("x"),
+                _y = _pos.attr("y"),
+                _size = _n.find("viz\\:size,size").attr("value"),
+                _col = _n.find("viz\\:color,color"),
+                _r = _col.attr("r"),
+                _g = _col.attr("g"),
+                _b = _col.attr("b"),
+                _attr = _n.find("attvalue");
+                _self=this;
+                if(GexfJS.params.colorNodeAttr != null){
+                    $(_attr).each( function(i,_f) {
+                        if(_f.getAttribute("for")==GexfJS.params.colorNodeAttr){
+                            var weight = parseFloat(_f.getAttribute("value"));
+                            var weight2 = weight *100;
+                            _r = String(Interpolate(GexfJS._start_color.getColors().r, GexfJS._end_color.getColors().r, 100, weight2));
+                            _g = String(Interpolate(GexfJS._start_color.getColors().g, GexfJS._end_color.getColors().g, 100, weight2));
+                            _b = String(Interpolate(GexfJS._start_color.getColors().b, GexfJS._end_color.getColors().b, 100, weight2));
+                        }
+                    });
+                }
+                        
+                if(GexfJS.params.featureMapOn){
+                    $(_attr).each( function(_f) {
+                        if(_f.getAttribute("for")==GexfJS._node_attr_value["features"]){
+                            genome_map = JSON.parse(getAttribute("value"));
+                            $.each(genome_map, function(gid,seq_map){
+                                GexfJS._genomeMap[gid]=Object.keys(seq_map);
+                                $.each(seq_map, function(sid,features){
+                                    GexfJS._seqMap[sid]=features;
+                                });                            
+                            });
+                        }
+                    });
+                }
+                
+            _d.coords = {
+                base : {
+                    x : _deltax + _echelle * _x,
+                    y : _deltay - _echelle * _y,
+                    r : _echelle * _size
+                }
+            }
+            _d.color = {
+                rgb : {
+                    r : _r,
+                    g : _g,
+                    b : _b
+                },
+                base : "rgba(" + _r + "," + _g + "," + _b + ",.7)",
+                gris : "rgba(" + Math.floor(84 + .33 * _r) + "," + Math.floor(84 + .33 * _g) + "," + Math.floor(84 + .33 * _b) + ",.5)"
+            }
+            _d.attributes = [];
+            $(_attr).each(function() {
+                var _a = $(this),
+                    _for = _a.attr("for");
+                _d.attributes[ _for ? _for : 'attribute_' + _a.attr("id") ] = _a.attr("value");
+            });
+            GexfJS.graph.nodeIndexById.push(_id);
+            GexfJS.graph.nodeIndexByLabel.push(_label.toLowerCase());
+            GexfJS.graph.nodeList.push(_d);
+            GexfJS.ctxMini.fillStyle = _d.color.base;
+            GexfJS.ctxMini.beginPath();
+            GexfJS.ctxMini.arc( _d.coords.base.x * GexfJS.overviewScale , _d.coords.base.y * GexfJS.overviewScale , _d.coords.base.r * GexfJS.overviewScale + 1 , 0 , Math.PI*2 , true );
+            GexfJS.ctxMini.closePath();
+            GexfJS.ctxMini.fill();
+        });
+        //used in combination with pathAttr, path_highlights links the replicon id to edges
+        var counter =0;
+        $(_edges).each(function() {
+            var pathList=[];
+            var _e = $(this),
+                _sid = _e.attr("source"),
+                _six = GexfJS.graph.nodeIndexById.indexOf(_sid);
+                _tid = _e.attr("target"),
+                _tix = GexfJS.graph.nodeIndexById.indexOf(_tid);
+                _w = _e.find('attvalue[for="weight"]').attr('value') || _e.attr('weight');
+                _col = _e.find("viz\\:color,color");
+                _eid = _e.attr("id");
+                //for some reason layout sometimes leaves off edge id
+                //if(typeof _eid === "undefined"){
+                    _eid = String(counter);
+                    _e.attr("id", String(counter));
+                //}
+                counter+=1;
+
+                /*_pattr=_e.find('attvalue[for="'+GexfJS.params.pathAttr+'"]').attr('value'),
+                _p = ( _pattr ? _pattr.split(/[ ,]+/) : _e.attr("path"));
+                $(_p).each(function(i, _path) {
+                    if (!(_path in GexfJS.path_highlights)){
+                        GexfJS.path_highlights[_path]={}
+                    }
+                    GexfJS.path_highlights[_path][_eid] = true;
+                });*/
+
+
+                $.each( GexfJS._edge_attr_value, function(k, cur_attr){
+                    _pattr=_e.find('attvalue[for="'+cur_attr+'"]').attr('value');
+                    _p = ( _pattr ? _pattr.split(/[ ,]+/) : _e.attr("path"));
+                    if(cur_attr == GexfJS.params.pathAttr){
+                        pathList=_p;
+                    }
+                    $(_p).each(function(i, _path) {
+                        if (!(_path in GexfJS.path_highlights[cur_attr])){
+                            GexfJS.path_highlights[cur_attr][_path]={}
+                        }
+                        GexfJS.path_highlights[cur_attr][_path][_eid] = true;
+                    });
+                });
+            
+                
+
+            if (_col.length) {
+                var _r = _col.attr("r"),
+                    _g = _col.attr("g"),
+                    _b = _col.attr("b");
+            } else {
+                var _scol = GexfJS.graph.nodeList[_six].color.rgb;
+                if (GexfJS.graph.directed) {
+                    var _r = _scol.r,
+                        _g = _scol.g,
+                        _b = _scol.b;
+                } else {
+                    var _tcol = GexfJS.graph.nodeList[_tix].color.rgb,
+                        _r = Math.floor( .5 * _scol.r + .5 * _tcol.r ),
+                        _g = Math.floor( .5 * _scol.g + .5 * _tcol.g ),
+                        _b = Math.floor( .5 * _scol.b + .5 * _tcol.b );
+                }
+            }
+            GexfJS.graph.edgeList.push({
+                source : _six,
+                target : _tix,
+                width : Math.max( GexfJS.params.minEdgeWidth, Math.min( GexfJS.params.maxEdgeWidth, ( _w || 1 ) ) ) * _echelle,
+                weight : parseFloat(_w || 0),
+                color : "rgba(" + _r + "," + _g + "," + _b + ",.7)",
+                path : pathList,
+                id : _eid
+            });
+            GexfJS.graph.edgeLookup[_eid]=GexfJS.graph.edgeList[GexfJS.graph.edgeList.length-1];
+        });
+        
+        GexfJS.imageMini = GexfJS.ctxMini.getImageData(0, 0, GexfJS.overviewWidth, GexfJS.overviewHeight);
+        var xmlString = (new XMLSerializer()).serializeToString(data);
+        GexfJS.textFileUrl = null;
+        makeTextDownload(xmlString);
+        var downloadLink='<a href='+GexfJS.textFileUrl+' download="pg_graph.gexf">Save Gexf</a>';
+        $("#maintitle").html("<h1>"+downloadLink+"</h1>");
+    
+    //changeNiveau(0);
+    }
 
 function loadGraph() {
     
@@ -684,254 +939,7 @@ function loadGraph() {
         dataType: "xml",
 	accepts: "application/xml",
         success: function(data) {
-            var _s = new Date();
-            var _m = $(data).find("meta");
-            if (_m.length > 0){
-                var _org_map_xml =  _m.children().filter("org_map");
-                if (_org_map_xml.length > 0){
-                    _org_map= $.parseJSON(_org_map_xml.contents()[0].data.replace("<![CDATA[", "").replace("]]>", ""));
-                }
-                var _contig_map_xml =  _m.children().filter("contig_map");
-                if (_contig_map_xml.length > 0){
-                    _contig_map= $.parseJSON(_contig_map_xml.contents()[0].data.replace("<![CDATA[", "").replace("]]>", ""));
-                }
-                var _edge_map_xml =  _m.children().filter("edge_map");
-                if (_edge_map_xml.length > 0){
-                    _edge_map= $.parseJSON(_edge_map_xml.contents()[0].data.replace("<![CDATA[", "").replace("]]>", ""));
-                }
-            }
-            var _g = $(data).find("graph"),
-                _nodes = _g.children().filter("nodes").children(),
-                _edges = _g.children().filter("edges").children();
-            _node_attr=_g.children().filter("attributes").filter(".node").children();
-            _edge_attr=_g.children().filter("attributes").filter(".edge").children();
-            GexfJS._node_attr={};
-            GexfJS._edge_attr={};
-            GexfJS._node_attr_value={};
-            GexfJS._edge_attr_value={};
-            $(_node_attr).each(function() {
-                var n_attr =$(this);
-                _id=n_attr.attr("id");
-                _value=n_attr.attr("title");
-                GexfJS._node_attr[_id]=_value;
-                GexfJS._node_attr_value[_value]=_id;
-            });
-            GexfJS.path_highlights={};
-            $(_edge_attr).each(function() {
-                var n_attr =$(this);
-                _id=n_attr.attr("id");
-                _value=n_attr.attr("title");
-                GexfJS._edge_attr[_id]=_value;
-                GexfJS._edge_attr_value[_value]=_id;
-                GexfJS.path_highlights[_id]={};
-            });
-            GexfJS._start_color = new Color(229, 227, 0);//yellow
-            GexfJS._end_color = new Color(191, 0, 30); //red
-            if (GexfJS.params.colorNodeAttr in GexfJS._node_attr_value){
-                GexfJS.params.colorNodeAttr = GexfJS._node_attr_value[GexfJS.params.colorNodeAttr];
-            }
-            else if ("weight" in GexfJS._node_attr_value){
-                GexfJS.params.colorNodeAttr = GexfJS._node_attr_value["weight"];
-            }
-            else if ("diversity" in GexfJS._node_attr_value){
-                GexfJS.params.colorNodeAttr = GexfJS._node_attr_value["diversity"];
-            }
-            else{
-                GexfJS.params.colorNodeAttr = null;
-            } 
-            if (GexfJS.params.pathAttr in GexfJS._edge_attr_value){
-                GexfJS.params.pathAttr = GexfJS._edge_attr_value[GexfJS.params.pathAttr];
-            }
-            else if("replicons" in GexfJS._edge_attr_value){
-                GexfJS.params.pathAttr = GexfJS._edge_attr_value["replicons"];
-            }
-            else if("sequences" in GexfJS._edge_attr_value){
-                GexfJS.params.pathAttr = GexfJS._edge_attr_value["sequences"];
-            }
-            GexfJS.graph = {
-                directed : ( _g.attr("defaultedgetype") == "directed" ),
-                source : data,
-                nodeList : [],
-                nodeIndexById : [],
-                nodeIndexByLabel : [],
-                edgeList : [],
-		edgeLookup : {}
-            }
-            var _xmin = 1e9, _xmax = -1e9, _ymin = 1e9, _ymax = -1e9; _marge = 30;
-            $(_nodes).each(function() {
-                var _n = $(this),
-                _pos = _n.find("viz\\:position,position"),
-                _x = _pos.attr("x"),
-                _y = _pos.attr("y");
-                _xmin = Math.min(_x, _xmin);
-                _xmax = Math.max(_x, _xmax);
-                _ymin = Math.min(_y, _ymin);
-                _ymax = Math.max(_y, _ymax);
-            });
-            
-            var _echelle = Math.min( ( GexfJS.baseWidth - _marge ) / ( _xmax - _xmin ) , ( GexfJS.baseHeight - _marge ) / ( _ymax - _ymin ) );
-            var _deltax = ( GexfJS.baseWidth - _echelle * ( _xmin + _xmax ) ) / 2;
-            var _deltay = ( GexfJS.baseHeight - _echelle * ( _ymin + _ymax ) ) / 2;
-            
-            GexfJS.ctxMini.clearRect(0, 0, GexfJS.overviewWidth, GexfJS.overviewHeight);
-            
-            $(_nodes).each( function() {
-                var _n = $(this),
-                    _id = _n.attr("id"),
-                    _label = _n.attr("label") || _id,
-                    _d = {
-                        id: _id,
-                        label: _label
-                    },
-                    _pos = _n.find("viz\\:position,position"),
-                    _x = _pos.attr("x"),
-                    _y = _pos.attr("y"),
-                    _size = _n.find("viz\\:size,size").attr("value"),
-                    _col = _n.find("viz\\:color,color"),
-                    _r = _col.attr("r"),
-                    _g = _col.attr("g"),
-                    _b = _col.attr("b"),
-                    _attr = _n.find("attvalue");
-                    _self=this;
-                    if(GexfJS.params.colorNodeAttr != null){
-                        $(_attr).each( function(i,_f) {
-                            if(_f.getAttribute("for")==GexfJS.params.colorNodeAttr){
-                                var weight = parseFloat(_f.getAttribute("value"));
-                                var weight2 = weight *100;
-                                _r = String(Interpolate(GexfJS._start_color.getColors().r, GexfJS._end_color.getColors().r, 100, weight2));
-                                _g = String(Interpolate(GexfJS._start_color.getColors().g, GexfJS._end_color.getColors().g, 100, weight2));
-                                _b = String(Interpolate(GexfJS._start_color.getColors().b, GexfJS._end_color.getColors().b, 100, weight2));
-                            }
-                        });
-                    }
-                         
-                    if(GexfJS.params.featureMapOn){
-                        $(_attr).each( function(_f) {
-                            if(_f.getAttribute("for")==GexfJS._node_attr_value["features"]){
-                                genome_map = JSON.parse(getAttribute("value"));
-                                $.each(genome_map, function(gid,seq_map){
-                                    GexfJS._genomeMap[gid]=Object.keys(seq_map);
-                                    $.each(seq_map, function(sid,features){
-                                        GexfJS._seqMap[sid]=features;
-                                    });                            
-                                });
-                            }
-                        });
-                    }
-                    
-                _d.coords = {
-                    base : {
-                        x : _deltax + _echelle * _x,
-                        y : _deltay - _echelle * _y,
-                        r : _echelle * _size
-                    }
-                }
-                _d.color = {
-                    rgb : {
-                        r : _r,
-                        g : _g,
-                        b : _b
-                    },
-                    base : "rgba(" + _r + "," + _g + "," + _b + ",.7)",
-                    gris : "rgba(" + Math.floor(84 + .33 * _r) + "," + Math.floor(84 + .33 * _g) + "," + Math.floor(84 + .33 * _b) + ",.5)"
-                }
-                _d.attributes = [];
-                $(_attr).each(function() {
-                    var _a = $(this),
-                        _for = _a.attr("for");
-                    _d.attributes[ _for ? _for : 'attribute_' + _a.attr("id") ] = _a.attr("value");
-                });
-                GexfJS.graph.nodeIndexById.push(_id);
-                GexfJS.graph.nodeIndexByLabel.push(_label.toLowerCase());
-                GexfJS.graph.nodeList.push(_d);
-                GexfJS.ctxMini.fillStyle = _d.color.base;
-                GexfJS.ctxMini.beginPath();
-                GexfJS.ctxMini.arc( _d.coords.base.x * GexfJS.overviewScale , _d.coords.base.y * GexfJS.overviewScale , _d.coords.base.r * GexfJS.overviewScale + 1 , 0 , Math.PI*2 , true );
-                GexfJS.ctxMini.closePath();
-                GexfJS.ctxMini.fill();
-            });
-            //used in combination with pathAttr, path_highlights links the replicon id to edges
-            var counter =0;
-            $(_edges).each(function() {
-                var pathList=[];
-                var _e = $(this),
-                    _sid = _e.attr("source"),
-                    _six = GexfJS.graph.nodeIndexById.indexOf(_sid);
-                    _tid = _e.attr("target"),
-                    _tix = GexfJS.graph.nodeIndexById.indexOf(_tid);
-                    _w = _e.find('attvalue[for="weight"]').attr('value') || _e.attr('weight');
-                    _col = _e.find("viz\\:color,color");
-                    _eid = _e.attr("id");
-                    //for some reason layout sometimes leaves off edge id
-                    //if(typeof _eid === "undefined"){
-                        _eid = String(counter);
-                        _e.attr("id", String(counter));
-                    //}
-                    counter+=1;
-
-                    /*_pattr=_e.find('attvalue[for="'+GexfJS.params.pathAttr+'"]').attr('value'),
-                    _p = ( _pattr ? _pattr.split(/[ ,]+/) : _e.attr("path"));
-                    $(_p).each(function(i, _path) {
-                        if (!(_path in GexfJS.path_highlights)){
-                            GexfJS.path_highlights[_path]={}
-                        }
-                        GexfJS.path_highlights[_path][_eid] = true;
-                    });*/
-
-
-                    $.each( GexfJS._edge_attr_value, function(k, cur_attr){
-                        _pattr=_e.find('attvalue[for="'+cur_attr+'"]').attr('value');
-                        _p = ( _pattr ? _pattr.split(/[ ,]+/) : _e.attr("path"));
-                        if(cur_attr == GexfJS.params.pathAttr){
-                            pathList=_p;
-                        }
-                        $(_p).each(function(i, _path) {
-                            if (!(_path in GexfJS.path_highlights[cur_attr])){
-                                GexfJS.path_highlights[cur_attr][_path]={}
-                            }
-                            GexfJS.path_highlights[cur_attr][_path][_eid] = true;
-                        });
-                    });
-                
-                    
-
-                if (_col.length) {
-                    var _r = _col.attr("r"),
-                        _g = _col.attr("g"),
-                        _b = _col.attr("b");
-                } else {
-                    var _scol = GexfJS.graph.nodeList[_six].color.rgb;
-                    if (GexfJS.graph.directed) {
-                        var _r = _scol.r,
-                            _g = _scol.g,
-                            _b = _scol.b;
-                    } else {
-                        var _tcol = GexfJS.graph.nodeList[_tix].color.rgb,
-                            _r = Math.floor( .5 * _scol.r + .5 * _tcol.r ),
-                            _g = Math.floor( .5 * _scol.g + .5 * _tcol.g ),
-                            _b = Math.floor( .5 * _scol.b + .5 * _tcol.b );
-                    }
-                }
-                GexfJS.graph.edgeList.push({
-                    source : _six,
-                    target : _tix,
-                    width : Math.max( GexfJS.params.minEdgeWidth, Math.min( GexfJS.params.maxEdgeWidth, ( _w || 1 ) ) ) * _echelle,
-                    weight : parseFloat(_w || 0),
-                    color : "rgba(" + _r + "," + _g + "," + _b + ",.7)",
-                    path : pathList,
-                    id : _eid
-                });
-                GexfJS.graph.edgeLookup[_eid]=GexfJS.graph.edgeList[GexfJS.graph.edgeList.length-1];
-            });
-            
-            GexfJS.imageMini = GexfJS.ctxMini.getImageData(0, 0, GexfJS.overviewWidth, GexfJS.overviewHeight);
-            var xmlString = (new XMLSerializer()).serializeToString(data);
-            GexfJS.textFileUrl = null;
-            makeTextDownload(xmlString);
-            var downloadLink='<a href='+GexfJS.textFileUrl+' download="pg_graph.gexf">Save Gexf</a>';
-            $("#maintitle").html("<h1>"+downloadLink+"</h1>");
-        
-        //changeNiveau(0);
+            createGraph(data);
         }
     });
 }
@@ -1218,7 +1226,7 @@ function setParams(paramlist) {
     GexfJS.params.patric_on= true;
 }
 
-function startGraphViewer(){
+function startGraphViewer(data){
     
     var lang = (
         typeof GexfJS.params.language != "undefined" && GexfJS.params.language
@@ -1246,7 +1254,7 @@ function startGraphViewer(){
     GexfJS.ctxMini = document.getElementById('overview').getContext('2d');
     updateWorkspaceBounds();
     
-    initializeMap();
+    initializeMap(data);
     
     window.onhashchange = initializeMap;
     
