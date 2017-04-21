@@ -1218,7 +1218,7 @@ function setParams(paramlist) {
     GexfJS.params.patric_on= true;
 }
 
-$(document).ready(function() {
+function startGraphViewer(){
     
     var lang = (
         typeof GexfJS.params.language != "undefined" && GexfJS.params.language
@@ -1368,4 +1368,4 @@ $(document).ready(function() {
         }
         return false;
     });
-});
+}

@@ -44,7 +44,7 @@ border:black;
 /* EN HAUT */
 
 #titlebar {
-    background: #ffffff; border-bottom: 1px solid #CCC; position: fixed; margin: 0; padding: 0; left: 0; top: 0; right: 0; height: 45px; overflow: hidden;
+    background: #ffffff; border-bottom: 1px solid #CCC;  margin: 0; padding: 0; left: 0; top: 0; right: 0; height: 45px; overflow: hidden;
 }
 
 #maintitle {
