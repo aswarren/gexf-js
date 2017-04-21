@@ -26,7 +26,7 @@ var GexfJS = {
     },
     oldParams : {},
     minZoom : -3,
-    maxZoom : 12,
+    maxZoom : 18,
     overviewWidth : 200,
     overviewHeight : 175,
     baseWidth : 800,
@@ -676,6 +676,9 @@ function initializeMap(data) {
     GexfJS.graph = null;
     if (typeof data === "undefined"){
         loadGraph();
+    }
+    else {
+        createGraph(data);
     }
 }
 
