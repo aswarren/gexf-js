@@ -727,7 +727,7 @@ function createGraph(data){
             GexfJS.path_highlights[_id]={};
         });
         GexfJS._start_color = new Color(229, 227, 0);//yellow
-        GexfJS._end_color = new Color(191, 0, 30); //red
+        GexfJS._end_color = new Color(255, 0, 40); //red
         if (GexfJS.params.colorNodeAttr in GexfJS._node_attr_value){
             GexfJS.params.colorNodeAttr = GexfJS._node_attr_value[GexfJS.params.colorNodeAttr];
         }
