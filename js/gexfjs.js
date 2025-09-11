@@ -22,7 +22,11 @@ var GexfJS = {
         centreY : 350,
         activeNode : -1,
         currentNode : -1,
-	activeEdges: {}
+        activeEdges: {},
+        zoomLevel: 0,
+        nodeSizeFactor: 10,  // From 1. Let's make nodes 10x bigger.
+        edgeWidthFactor: 5,   // From 1. Let's make edges 5x bigger.
+        textDisplayThreshold: 12 // Add this: Don't draw labels unless nodes are big enough
     },
     oldParams : {},
     minZoom : -3,
@@ -372,7 +376,9 @@ function namePATRICGenomes(feature_ref, genome_map){
 
 function replaceFeatureLinks(feature_ref, title_ref) {
 	var feature_str=feature_ref.text();
-    genome_map = JSON.parse(feature_str);
+    var clean_feature_str = feature_str.replace(/""/g, '"');
+
+    genome_map = JSON.parse(clean_feature_str);
     html_list=[];
     sids=[];
     $.each(genome_map, function(gid,seq_map){
