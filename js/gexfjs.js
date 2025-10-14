@@ -437,6 +437,7 @@ function displayPath(_eid, _path_str, _path_attr){
     if(typeof _path_attr == "undefined"){
         _path_attr = GexfJS.params.pathAttr;
     }
+    var path_attr_id = GexfJS._edge_attr_value[_path_attr];
 	//var _e = (typeof _eid !== undefined ? GexfJS.graph.edgeLookup[_eid] : undefined);
 	var _pathList=undefined;
 	if (typeof _e !== "undefined"){
@@ -448,7 +449,8 @@ function displayPath(_eid, _path_str, _path_attr){
 	//var _pathList = (typeof _e !== "undefined" ? _e.path : (typeof _path_str !== "undefined" ? _path_str.split(/[ ,]+/) : undefined));
 		
 	for (var i in _pathList){
-		var _elist=GexfJS.path_highlights[_path_attr][_pathList[i]];
+        var lookup_value = _pathList[i].replace(/"/g, '');
+		var _elist=GexfJS.path_highlights[_path_attr][lookup_value];
         //var _elist=GexfJS.path_highlights[_pathList[i]]
 		for (var target_id in _elist){
 			//var target_edge=GexfJS.graph.edgeLookup[target_id];
@@ -885,21 +887,30 @@ function createGraph(data){
                     GexfJS.path_highlights[_path][_eid] = true;
                 });*/
 
+            $.each( GexfJS._edge_attr_value, function(k, cur_attr){
+                _pattr=_e.find('attvalue[for="'+cur_attr+'"]').attr('value');
+                _p = ( _pattr ? _pattr.split(/[ ,]+/) : _e.attr("path"));
+                
+                var clean_p = []; // Create a new array for the cleaned path IDs
 
-                $.each( GexfJS._edge_attr_value, function(k, cur_attr){
-                    _pattr=_e.find('attvalue[for="'+cur_attr+'"]').attr('value');
-                    _p = ( _pattr ? _pattr.split(/[ ,]+/) : _e.attr("path"));
-                    if(cur_attr == GexfJS.params.pathAttr){
-                        pathList=_p;
-                    }
+                if (_p) { // Ensure _p is not null or undefined
                     $(_p).each(function(i, _path) {
-                        if (!(_path in GexfJS.path_highlights[cur_attr])){
-                            GexfJS.path_highlights[cur_attr][_path]={}
+                        var clean_path = _path.replace(/"/g, '');
+                        clean_p.push(clean_path); // Add the cleaned ID to our new array
+
+                        if (!(clean_path in GexfJS.path_highlights[cur_attr])){
+                            GexfJS.path_highlights[cur_attr][clean_path]={}
                         }
-                        GexfJS.path_highlights[cur_attr][_path][_eid] = true;
+                        GexfJS.path_highlights[cur_attr][clean_path][_eid] = true;
                     });
-                });
-            
+                }
+
+                // If this is the main path attribute, store the CLEAN array.
+                if(cur_attr == GexfJS.params.pathAttr){
+                    pathList = clean_p;
+                }
+            });
+
                 
 
             if (_col.length) {
