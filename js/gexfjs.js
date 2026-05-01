@@ -457,16 +457,19 @@ function displayPath(_eid, _path_str, _path_attr){
         var _elist = GexfJS.path_highlights[_path_attr][lookup_value];
         
         for (var edge_id in _elist){
-            // 1. Mark the Edge as active (Existing logic)
+            // 1. Mark the Edge as active
             GexfJS.params.activeEdges[edge_id] = true;
             
-            // 2. Mark the connected Nodes as active (NEW logic)
+            // 2. Mark the connected Nodes as active (CORRECTED LOGIC)
             var edgeObj = GexfJS.graph.edgeLookup[edge_id];
             if (edgeObj) {
-                // edgeObj.source and edgeObj.target are the indices 
-                // into GexfJS.graph.nodeList
-                GexfJS.params.activeNodes[edgeObj.source] = true;
-                GexfJS.params.activeNodes[edgeObj.target] = true;
+                // edgeObj.source and target are array indices. 
+                // We must look up the actual node object to get the real string ID.
+                var sourceNode = GexfJS.graph.nodeList[edgeObj.source];
+                var targetNode = GexfJS.graph.nodeList[edgeObj.target];
+                
+                if (sourceNode) GexfJS.params.activeNodes[sourceNode.id] = true;
+                if (targetNode) GexfJS.params.activeNodes[targetNode.id] = true;
             }
         }
     }
@@ -587,10 +590,13 @@ function endMove(evt) {
 function onGraphClick(evt) {
     if (!GexfJS.mouseHasMoved) {
         displayNode(GexfJS.params.activeNode);
-    	if (GexfJS.params.activeNode == -1){ 
-		GexfJS.params.activeEdges={};
-		GexfJS.params.path_active=false;
-    	}
+        
+        // ALWAYS clear these states on any click to reset the view.
+        // If a node was clicked, displayNode handles its own focus.
+        // If background was clicked (-1), this safely returns to default.
+        GexfJS.params.activeEdges = {};
+        GexfJS.params.path_active = false;
+        GexfJS.params.activeNodes = {}; 
     }
     endMove();
 }
@@ -1098,9 +1104,9 @@ function traceMap() {
             _dt = GexfJS.graph.nodeList[_tix];
 	var _eid = _d.id;
         var active_edge = (_eid in GexfJS.params.activeEdges);
-	if (active_edge && _centralNode == -1){
-		_centralNode = _six;
-	}
+	//if (active_edge && _centralNode == -1){
+	//	_centralNode = _six;
+	//}
         var _isLinked = false;
         if (_centralNode != -1) {
             if (_six == _centralNode) {
@@ -1142,31 +1148,37 @@ function traceMap() {
         _dnc.coords.real = ( (GexfJS.params.useLens && GexfJS.mousePosition ) ? calcCoord( GexfJS.mousePosition.x , GexfJS.mousePosition.y , _dnc.coords.actual ) : _dnc.coords.actual );
     }
     
+    var hasActiveNodes = GexfJS.params.activeNodes && !jQuery.isEmptyObject(GexfJS.params.activeNodes);
+    var isFadeMode = (_tagsMisEnValeur.length > 0 || hasActiveNodes);
+
     for (var i in GexfJS.graph.nodeList) {
         var _d = GexfJS.graph.nodeList[i];
         if (_d.visible && _d.withinFrame) {
             if (i != _centralNode) {
                 _d.coords.real = ( ( GexfJS.params.useLens && GexfJS.mousePosition ) ? calcCoord( GexfJS.mousePosition.x , GexfJS.mousePosition.y , _d.coords.actual ) : _d.coords.actual );
+                
+                // 1. Is this node connected to an active edge?
                 _d.isTag = ( _tagsMisEnValeur.indexOf(parseInt(i)) != -1 );
 
-				var isMetadataActive = (GexfJS.params.path_active && GexfJS.params.activeNodes && GexfJS.params.activeNodes[i]);
+                // 2. Is this node specifically selected (e.g., a CNV)?
+                // FIX: Use _d.id, not i!
+                var isNodeActive = (GexfJS.params.activeNodes && GexfJS.params.activeNodes[_d.id]);
 
-				// 2. Set the Color
-				// Logic: If we have a selection (_tagsMisEnValeur.length) 
-				//        AND this node is NOT a neighbor (!isTag) 
-				//        AND this node is NOT a metadata highlight (!isMetadataActive)
-				//        THEN make it grey. OTHERWISE use its real color.
-				var shouldBeGrey = ( _tagsMisEnValeur.length && !_d.isTag && !isMetadataActive );
-				if (GexfJS.params.pinnedElements['n_' + _d.id]) {
+                // 3. Should it be grey? 
+                // YES, IF we are in fade mode, AND it's not a tag, AND it's not an active node.
+                var shouldBeGrey = ( isFadeMode && !_d.isTag && !isNodeActive );
+
+                // 4. Set the Color
+                var _color;
+                if (GexfJS.params.pinnedElements && GexfJS.params.pinnedElements['n_' + _d.id]) {
                     _color = GexfJS.params.pinnedElements['n_' + _d.id];
                 }
                 else {
-					_color = ( shouldBeGrey ? _d.color.gris : _d.color.base );
+                    _color = ( shouldBeGrey ? _d.color.gris : _d.color.base );
                 }
+                
                 GexfJS.ctxGraphe.fillStyle = _color;
                 GexfJS.ctxGraphe.beginPath();
-
-                //GexfJS.ctxGraphe.fillStyle = ( ( _tagsMisEnValeur.length && !_d.isTag ) ? _d.color.gris : _d.color.base );
                 GexfJS.ctxGraphe.arc( _d.coords.real.x , _d.coords.real.y , _d.coords.real.r , 0 , Math.PI*2 , true );
                 GexfJS.ctxGraphe.closePath();
                 GexfJS.ctxGraphe.fill();
