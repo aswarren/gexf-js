@@ -23,6 +23,7 @@ var GexfJS = {
         activeNode : -1,
         currentNode : -1,
         activeEdges: {},
+        pinnedElements: {}, 
         zoomLevel: 0,
         nodeSizeFactor: 10,  // From 1. Let's make nodes 10x bigger.
         edgeWidthFactor: 5,   // From 1. Let's make edges 5x bigger.
@@ -428,6 +429,7 @@ function replaceLocationLinks(location_ref) {
 
 function displayPath(_eid, _path_str, _path_attr){
 	GexfJS.params.activeEdges={};
+	GexfJS.params.activeNodes = {};
 	if(typeof _eid !== "undefined"){
 		var _e = GexfJS.graph.edgeLookup[_eid];
 	}
@@ -447,17 +449,28 @@ function displayPath(_eid, _path_str, _path_attr){
 		_pathList= _path_str.split(/[ ,]+/);
 	}
 	//var _pathList = (typeof _e !== "undefined" ? _e.path : (typeof _path_str !== "undefined" ? _path_str.split(/[ ,]+/) : undefined));
-		
-	for (var i in _pathList){
-        var lookup_value = _pathList[i].replace(/"/g, '');
-		var _elist=GexfJS.path_highlights[_path_attr][lookup_value];
-        //var _elist=GexfJS.path_highlights[_pathList[i]]
-		for (var target_id in _elist){
-			//var target_edge=GexfJS.graph.edgeLookup[target_id];
-	                GexfJS.params.activeEdges[target_id]=true;
-		}
-	}
-	GexfJS.params.path_active = !jQuery.isEmptyObject(GexfJS.params.activeEdges);
+    for (var i in _pathList){
+        var path_id = _pathList[i];
+        if (!path_id) continue;
+        
+        var lookup_value = path_id.replace(/"/g, '');
+        var _elist = GexfJS.path_highlights[_path_attr][lookup_value];
+        
+        for (var edge_id in _elist){
+            // 1. Mark the Edge as active (Existing logic)
+            GexfJS.params.activeEdges[edge_id] = true;
+            
+            // 2. Mark the connected Nodes as active (NEW logic)
+            var edgeObj = GexfJS.graph.edgeLookup[edge_id];
+            if (edgeObj) {
+                // edgeObj.source and edgeObj.target are the indices 
+                // into GexfJS.graph.nodeList
+                GexfJS.params.activeNodes[edgeObj.source] = true;
+                GexfJS.params.activeNodes[edgeObj.target] = true;
+            }
+        }
+    }
+    GexfJS.params.path_active = !jQuery.isEmptyObject(GexfJS.params.activeEdges);		
 }
 
 function displayNode(_nodeIndex, _recentre) {
@@ -1108,7 +1121,16 @@ function traceMap() {
             GexfJS.ctxGraphe.lineWidth = _edgeSizeFactor * _d.width;
             var _coords = ( ( GexfJS.params.useLens && GexfJS.mousePosition ) ? calcCoord( GexfJS.mousePosition.x , GexfJS.mousePosition.y , _ds.coords.actual ) : _ds.coords.actual );
             _coordt = ( (GexfJS.params.useLens && GexfJS.mousePosition) ? calcCoord( GexfJS.mousePosition.x , GexfJS.mousePosition.y , _dt.coords.actual ) : _dt.coords.actual );
-            GexfJS.ctxGraphe.strokeStyle = ( (_isLinked && ! GexfJS.params.path_active) || active_edge ? _d.color : "rgba(100,100,100,0.2)" );
+            if (GexfJS.params.pinnedElements['e_' + _d.id]) {
+               _color = GexfJS.params.pinnedElements['e_' + _d.id];
+            }
+            else if ( GexfJS.params.path_active && GexfJS.params.activeEdges[_d.id] && GexfJS.params.highlightColorOverride)  {
+                    _color = GexfJS.params.highlightColorOverride;
+            }
+            else{
+                _color = ( (_isLinked && ! GexfJS.params.path_active) || active_edge ? _d.color : "rgba(100,100,100,0.2)" )
+            }
+            GexfJS.ctxGraphe.strokeStyle = _color;
             traceArc(GexfJS.ctxGraphe, _coords, _coordt);
         }
     }
@@ -1126,8 +1148,25 @@ function traceMap() {
             if (i != _centralNode) {
                 _d.coords.real = ( ( GexfJS.params.useLens && GexfJS.mousePosition ) ? calcCoord( GexfJS.mousePosition.x , GexfJS.mousePosition.y , _d.coords.actual ) : _d.coords.actual );
                 _d.isTag = ( _tagsMisEnValeur.indexOf(parseInt(i)) != -1 );
+
+				var isMetadataActive = (GexfJS.params.path_active && GexfJS.params.activeNodes && GexfJS.params.activeNodes[i]);
+
+				// 2. Set the Color
+				// Logic: If we have a selection (_tagsMisEnValeur.length) 
+				//        AND this node is NOT a neighbor (!isTag) 
+				//        AND this node is NOT a metadata highlight (!isMetadataActive)
+				//        THEN make it grey. OTHERWISE use its real color.
+				var shouldBeGrey = ( _tagsMisEnValeur.length && !_d.isTag && !isMetadataActive );
+				if (GexfJS.params.pinnedElements['n_' + _d.id]) {
+                    _color = GexfJS.params.pinnedElements['n_' + _d.id];
+                }
+                else {
+					_color = ( shouldBeGrey ? _d.color.gris : _d.color.base );
+                }
+                GexfJS.ctxGraphe.fillStyle = _color;
                 GexfJS.ctxGraphe.beginPath();
-                GexfJS.ctxGraphe.fillStyle = ( ( _tagsMisEnValeur.length && !_d.isTag ) ? _d.color.gris : _d.color.base );
+
+                //GexfJS.ctxGraphe.fillStyle = ( ( _tagsMisEnValeur.length && !_d.isTag ) ? _d.color.gris : _d.color.base );
                 GexfJS.ctxGraphe.arc( _d.coords.real.x , _d.coords.real.y , _d.coords.real.r , 0 , Math.PI*2 , true );
                 GexfJS.ctxGraphe.closePath();
                 GexfJS.ctxGraphe.fill();
@@ -1151,11 +1190,18 @@ function traceMap() {
                     }
                 }
                 if (_fs > GexfJS.params.textDisplayThreshold) {
-                    GexfJS.ctxGraphe.fillStyle = ( ( i != GexfJS.params.activeNode ) && _tagsMisEnValeur.length && ( ( !_d.isTag ) || ( _centralNode != -1 ) ) ? "rgba(60,60,60,0.7)" : "rgb(0,0,0)" );
-                    GexfJS.ctxGraphe.font = Math.floor( _fs )+"px Arial";
-                    GexfJS.ctxGraphe.textAlign = "center";
-                    GexfJS.ctxGraphe.textBaseline = "middle";
-                    GexfJS.ctxGraphe.fillText(_d.label, _d.coords.real.x, _d.coords.real.y);
+                    // --- NEW: Check if labels are globally enabled ---
+                    if (GexfJS.params.showNodeLabels !== false) {
+                        GexfJS.ctxGraphe.fillStyle = ( ( i != GexfJS.params.activeNode ) && _tagsMisEnValeur.length && ( ( !_d.isTag ) || ( _centralNode != -1 ) ) ? "rgba(60,60,60,0.7)" : "rgb(0,0,0)" );
+                        
+                        // --- NEW: Apply the size multiplier ---
+                        var finalFs = _fs * (GexfJS.params.labelSizeFactor || 1.0);
+                        GexfJS.ctxGraphe.font = Math.floor( finalFs )+"px Arial";
+                        
+                        GexfJS.ctxGraphe.textAlign = "center";
+                        GexfJS.ctxGraphe.textBaseline = "middle";
+                        GexfJS.ctxGraphe.fillText(_d.label, _d.coords.real.x, _d.coords.real.y);
+                    }
                 }
             }
         }
@@ -1168,17 +1214,25 @@ function traceMap() {
         GexfJS.ctxGraphe.closePath();
         GexfJS.ctxGraphe.fill();
         GexfJS.ctxGraphe.stroke();
-        var _fs = Math.max(GexfJS.params.textDisplayThreshold + 2, _dnc.coords.real.r * _textSizeFactor) + 2;
-        GexfJS.ctxGraphe.font = "bold " + Math.floor( _fs )+"px Arial";
-        GexfJS.ctxGraphe.textAlign = "center";
-        GexfJS.ctxGraphe.textBaseline = "middle";
-        GexfJS.ctxGraphe.fillStyle = "rgba(255,255,250,0.8)";
-        GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x - 2, _dnc.coords.real.y);
-        GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x + 2, _dnc.coords.real.y);
-        GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x, _dnc.coords.real.y - 2);
-        GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x, _dnc.coords.real.y + 2);
-        GexfJS.ctxGraphe.fillStyle = "rgb(0,0,0)";
-        GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x, _dnc.coords.real.y);
+        
+        // --- NEW: Check if labels are globally enabled before drawing text ---
+        if (GexfJS.params.showNodeLabels !== false) {
+            var _fs = Math.max(GexfJS.params.textDisplayThreshold + 2, _dnc.coords.real.r * _textSizeFactor) + 2;
+            
+            // --- NEW: Apply the size multiplier ---
+            var finalFs = _fs * (GexfJS.params.labelSizeFactor || 1.0);
+            GexfJS.ctxGraphe.font = "bold " + Math.floor( finalFs )+"px Arial";
+            
+            GexfJS.ctxGraphe.textAlign = "center";
+            GexfJS.ctxGraphe.textBaseline = "middle";
+            GexfJS.ctxGraphe.fillStyle = "rgba(255,255,250,0.8)";
+            GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x - 2, _dnc.coords.real.y);
+            GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x + 2, _dnc.coords.real.y);
+            GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x, _dnc.coords.real.y - 2);
+            GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x, _dnc.coords.real.y + 2);
+            GexfJS.ctxGraphe.fillStyle = "rgb(0,0,0)";
+            GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x, _dnc.coords.real.y);
+        }
     }
     
     GexfJS.ctxMini.putImageData(GexfJS.imageMini, 0, 0);
@@ -1373,27 +1427,26 @@ function startGraphViewer(data){
         updateButtonStates();
         return false;
     });
-    $("#aUnfold").click(function() {
-        var _cG = $("#leftcolumn");
-        if (_cG.offset().left < 0) {
-            _cG.animate({
-                "left" : "0px"
-            }, function() {
-                $("#aUnfold").attr("class","leftarrow");
-                $("#zonecentre").css({
-                    left: _cG.width() + "px"
-                });
-            });
-        } else {
-            _cG.animate({
-                "left" : "-" + _cG.width() + "px"
-            }, function() {
-                $("#aUnfold").attr("class","rightarrow");
-                $("#zonecentre").css({
-                    left: "0"
-                });
-            });
-        }
-        return false;
-    });
+	$("#aUnfold").click(function() {
+		// Determine if we are opening or closing based on current class
+		var isGraphSmall = $(this).hasClass("rightarrow");
+		
+		// We animate the 'right' property because the panel is anchored to the right.
+		var _params = {
+			right: isGraphSmall ? "-250px" : "0px" // Hide off-screen right (-250px) or show (0px)
+		};
+
+		$("#leftcolumn").animate(_params, 500, function() {
+			// Toggle the arrow icon class
+			$("#aUnfold").toggleClass("rightarrow").toggleClass("leftarrow");
+			
+			// Trigger a resize so the canvas fills the new space
+			if (window.updateWorkspaceBounds) { 
+				// In Dojo we rely on the widget resize, but here we can just update global vars
+				// or trigger a window resize event to let GEXFView.js handle it.
+				window.dispatchEvent(new Event('resize'));
+			}
+		});
+		return false;
+	});
 }
