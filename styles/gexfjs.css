@@ -2,41 +2,42 @@
  * Licensed under the MIT License
  * */
 
-body {
+.GEXFView  {
     font-family: Helvetica, Arial, sans-serif; font-size: 12px;
     background-color: #e0e0e8; color: #204020; margin: 0;
 }
 
-.clear {
+/* --- SCOPED GENERIC CLASSES --- */
+.GEXFView .clear {
     clear: both;
 }
 
-.attribute_box{
-width 100%;
-max-height: 250px;
-overflow-y: scroll;
-word-wrap: break-word;
+.GEXFView .attribute_box{
+    width: 100%;
+    max-height: 250px;
+    overflow-y: scroll;
+    word-wrap: break-word;
 }
 
-.ui-accordion{
-border-style:solid;
-border-radius:4px;
-border-width:thin;
-border:black;
+.GEXFView .ui-accordion{
+    border-style:solid;
+    border-radius:4px;
+    border-width:thin;
+    border:black;
 }
 
-::-webkit-scrollbar {
+/* --- SCOPED SCROLLBARS --- */
+.GEXFView ::-webkit-scrollbar {
     -webkit-appearance: none;
     width: 7px;
 }
-::-webkit-scrollbar-thumb {
+.GEXFView ::-webkit-scrollbar-thumb {
     border-radius: 4px;
     background-color: rgba(0,0,0,.5);
     -webkit-box-shadow: 0 0 1px rgba(255,255,255,.5);
 }
 
-
-.gradient {
+.GEXFView .gradient {
     background-color: #f0f0f8; 
     background-image: -webkit-radial-gradient(#ffffff, #d8d8e0); background-image: -moz-radial-gradient(#ffffff, #d8d8e0);
 }
@@ -51,26 +52,24 @@ border:black;
     position: absolute; left: 0; top: 0; width: 250px; text-align: center;
 }
 
-
-h6 {
+/* --- SCOPED HTML TAGS (CRITICAL TO PREVENT BLEED) --- */
+.GEXFView h6 {
     color:black;
 }
 
-h6 a {
+.GEXFView h6 a {
     color:#1c94c4;
 }
 
-h1 {
+.GEXFView h1 {
     margin:0;
 }
 
-h1 a {
-   // background: url(../img/gephi.png) no-repeat;
+.GEXFView h1 a {
     color: #208020;
     display: block;
     height:45px;
     margin: 10px;
-    //text-indent: -9999px;
     width: 195px;
     font-size: 18px;
 }
@@ -78,7 +77,7 @@ h1 a {
 #searchinput {
     background: #fff url(../img/search.gif) no-repeat right;
     border: 1px solid #DDD;
-    font-size: 14px; line-height: 14px, height: 14px;
+    font-size: 14px; line-height: 14px; height: 14px; /* Fixed a typo here: replaced comma with semicolon */
     left: 250px;
     padding: 1px 4px; margin: 0;
     position: absolute;
@@ -91,10 +90,10 @@ h1 a {
 }
 
 #searchsubmit {
-    position: absolute; left: 560px; top: 13px; width: 20px; height: 20px; margin: 0; padding: 0; height: 16px; border: none; background: none; text-indent: -999px; cursor: pointer; cursor: hand;
+    position: absolute; left: 560px; top: 13px; width: 20px; height: 20px; margin: 0; padding: 0; border: none; background: none; text-indent: -999px; cursor: pointer;
 }
 
-.grey {
+.GEXFView .grey {
     color: #cccccc; font-style: italic;
 }
 
@@ -103,7 +102,6 @@ h1 a {
 #zonecentre {
     position: fixed; top: 45px; bottom: 0; left: 0; right: 0; overflow: hidden;
 }
-
 
 #carte {
     position: absolute; left: 0px;
@@ -127,62 +125,26 @@ h1 a {
     display: block; width: 24px; height: 24px; background:url(../img/plusmoins.png);  margin: 0 auto;
 }
 
-#zoomMinusButton {
-    background-position: 0 -24px;
-}
-
-#zoomMinusButton:hover {
-    background-position: -24px -24px;
-}
-
-#zoomPlusButton {
-    background-position: 0 0;
-}
-
-#zoomPlusButton:hover {
-    background-position: -24px 0;
-}
+#zoomMinusButton { background-position: 0 -24px; }
+#zoomMinusButton:hover { background-position: -24px -24px; }
+#zoomPlusButton { background-position: 0 0; }
+#zoomPlusButton:hover { background-position: -24px 0; }
 
 #lensButton, #edgesButton {
     display: block; width: 36px; height: 36px; background:url(../img/loupe-edges.png); margin: 0 auto;
 }
 
-#lensButton {
-     background-position: -72px 0;
-}
-
-#lensButton:hover {
-    background-position: -36px 0;
-}
-
-#lensButton.off {
-    background-position: 0 0;
-}
-
-#lensButton.off:hover {
-    background-position: -108px 0;
-}
-
-#edgesButton {
-    background-position: -72px -36px;
-}
-
-#edgesButton:hover {
-    background-position: -36px -36px;
-}
-
-#edgesButton.off {
-    background-position: 0 -36px;
-}
-
-#edgesButton.off:hover {
-    background-position: -108px -36px;
-}
+#lensButton { background-position: -72px 0; }
+#lensButton:hover { background-position: -36px 0; }
+#lensButton.off { background-position: 0 0; }
+#lensButton.off:hover { background-position: -108px 0; }
+#edgesButton { background-position: -72px -36px; }
+#edgesButton:hover { background-position: -36px -36px; }
+#edgesButton.off { background-position: 0 -36px; }
+#edgesButton.off:hover { background-position: -108px -36px; }
 
 #zoomSlider {
-    background:#fff;
-    border:1px solid #aaa;
-    height: 120px; margin: 0 auto;
+    background:#fff; border:1px solid #aaa; height: 120px; margin: 0 auto;
 }
 
 /* EN BAS A GAUCHE */
@@ -209,22 +171,10 @@ h1 a {
     float: left; width: 12px; height: 12px; background-image: url(../img/fleches-horiz.png);
 }
 
-.leftarrow {
-    background-position: -12px 0;
-}
-
-.rightarrow {
-    background-position: 0 0;
-}
-
-.leftarrow:hover {
-    background-position: -12px -12px;
-}
-
-.rightarrow:hover {
-    background-position: 0 -12px;
-}
-
+.GEXFView .leftarrow { background-position: -12px 0; }
+.GEXFView .rightarrow { background-position: 0 0; }
+.GEXFView .leftarrow:hover { background-position: -12px -12px; }
+.GEXFView .rightarrow:hover { background-position: 0 -12px; }
 
 /* ZONE GAUCHE */
 
@@ -232,43 +182,30 @@ h1 a {
     position: absolute; left: 0; top: 0; bottom: 0; right: 0; overflow: auto; list-style: none; margin: 0; padding: 0; border-top: 1px solid #cccccc;
 }
 
-div.largepill {
+.GEXFView div.largepill {
     float: left; width: 16px; height: 16px; border-radius: 8px; margin: 0 5px 0 0;
 }
 
-div.smallpill {
+.GEXFView div.smallpill {
     float: left; width: 12px; height: 12px; border-radius: 6px; margin: 0 5px 0 0;
 }
 
-div.smallbox {
+.GEXFView div.smallbox {
     float: left; width: 8px; height: 8px; margin: 3px 5px 0 0; border: black; border-style:solid; border-width:thin;
 }
 
-#leftcontent h3 {
-    font-size: 16px;
-}
+#leftcontent h3 { font-size: 16px; }
+#leftcontent h4 { font-size: 14px; }
+#leftcontent h3, #leftcontent h4, #leftcontent p, #leftcontent ul { margin: 5px; }
+#leftcontent ul { list-style: none; padding: 0; }
+#leftcontent li { margin: 2px 0; padding: 0; font-size: 12px; }
 
-#leftcontent h4 {
-    font-size: 14px;
-}
-
-#leftcontent h3, #leftcontent h4, #leftcontent p, #leftcontent ul {
-    margin: 5px;
-}
-
-#leftcontent ul {
-    list-style: none; padding: 0;
-}
-
-#leftcontent li {
-    margin: 2px 0; padding: 0; font-size: 12px;
-}
-
-a {
+/* --- SCOPED HTML TAGS (CRITICAL TO PREVENT BLEED) --- */
+.GEXFView a {
     color: #06a8de; font-weight: bold; text-decoration: none;
 }
 
-a:hover {
+.GEXFView a:hover {
     color: #000080;
 }
 
