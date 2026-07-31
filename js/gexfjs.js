@@ -1134,7 +1134,8 @@ function traceMap() {
                     _color = GexfJS.params.highlightColorOverride;
             }
             else{
-                _color = ( (_isLinked && ! GexfJS.params.path_active) || active_edge ? _d.color : "rgba(100,100,100,0.2)" )
+                var baseEdgeColor = GexfJS.params.muteDefaultColors ? "rgba(180,180,180,0.5)" : _d.color;
+                _color = ( (_isLinked && ! GexfJS.params.path_active) || active_edge ? baseEdgeColor : "rgba(100,100,100,0.2)" );
             }
             GexfJS.ctxGraphe.strokeStyle = _color;
             traceArc(GexfJS.ctxGraphe, _coords, _coordt);
@@ -1170,11 +1171,14 @@ function traceMap() {
 
                 // 4. Set the Color
                 var _color;
+                var baseNodeColor = GexfJS.params.muteDefaultColors ? "rgba(180,180,180,0.8)" : _d.color.base;
+                var grisNodeColor = GexfJS.params.muteDefaultColors ? "rgba(100,100,100,0.3)" : _d.color.gris;
+
                 if (GexfJS.params.pinnedElements && GexfJS.params.pinnedElements['n_' + _d.id]) {
                     _color = GexfJS.params.pinnedElements['n_' + _d.id];
                 }
                 else {
-                    _color = ( shouldBeGrey ? _d.color.gris : _d.color.base );
+                    _color = ( shouldBeGrey ? grisNodeColor : baseNodeColor );
                 }
                 
                 GexfJS.ctxGraphe.fillStyle = _color;
@@ -1220,7 +1224,8 @@ function traceMap() {
     }
     
     if (_centralNode != -1) {
-        GexfJS.ctxGraphe.fillStyle = _dnc.color.base;
+        var defaultDncBase = GexfJS.params.muteDefaultColors ? "rgba(180,180,180,0.8)" : _dnc.color.base;
+        GexfJS.ctxGraphe.fillStyle = defaultDncBase;
         GexfJS.ctxGraphe.beginPath();
         GexfJS.ctxGraphe.arc( _dnc.coords.real.x , _dnc.coords.real.y , _dnc.coords.real.r , 0 , Math.PI*2 , true );
         GexfJS.ctxGraphe.closePath();
