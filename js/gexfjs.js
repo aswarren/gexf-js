@@ -1102,7 +1102,7 @@ function traceMap() {
             _tix = _d.target,
             _ds = GexfJS.graph.nodeList[_six],
             _dt = GexfJS.graph.nodeList[_tix];
-	var _eid = _d.id;
+	    var _eid = _d.id;
         var active_edge = (_eid in GexfJS.params.activeEdges);
 	//if (active_edge && _centralNode == -1){
 	//	_centralNode = _six;
@@ -1127,15 +1127,25 @@ function traceMap() {
             GexfJS.ctxGraphe.lineWidth = _edgeSizeFactor * _d.width;
             var _coords = ( ( GexfJS.params.useLens && GexfJS.mousePosition ) ? calcCoord( GexfJS.mousePosition.x , GexfJS.mousePosition.y , _ds.coords.actual ) : _ds.coords.actual );
             _coordt = ( (GexfJS.params.useLens && GexfJS.mousePosition) ? calcCoord( GexfJS.mousePosition.x , GexfJS.mousePosition.y , _dt.coords.actual ) : _dt.coords.actual );
-            if (GexfJS.params.pinnedElements['e_' + _d.id]) {
-               _color = GexfJS.params.pinnedElements['e_' + _d.id];
+            var _color;
+
+            if (GexfJS.params.pinnedElements && GexfJS.params.pinnedElements['e_' + _d.id]) {
+                // 1. Pinned Colors always win
+                _color = GexfJS.params.pinnedElements['e_' + _d.id];
             }
-            else if ( GexfJS.params.path_active && GexfJS.params.activeEdges[_d.id] && GexfJS.params.highlightColorOverride)  {
-                    _color = GexfJS.params.highlightColorOverride;
+            else if (GexfJS.params.path_active && active_edge) {
+                // 2. It's a highlighted edge! Make it visible.
+                if (GexfJS.params.highlightColorOverride) {
+                    _color = GexfJS.params.highlightColorOverride; // User override
+                } else {
+                    // If muted, use Magenta so it pops. If not muted, use its native embedded color.
+                    _color = GexfJS.params.muteDefaultColors ? "#ff00ff" : _d.color; 
+                }
             }
-            else{
+            else {
+                // 3. Not highlighted (either neighbor hover or faded background)
                 var baseEdgeColor = GexfJS.params.muteDefaultColors ? "rgba(180,180,180,0.5)" : _d.color;
-                _color = ( (_isLinked && ! GexfJS.params.path_active) || active_edge ? baseEdgeColor : "rgba(100,100,100,0.2)" );
+                _color = ( (_isLinked && !GexfJS.params.path_active) ? baseEdgeColor : "rgba(100,100,100,0.2)" );
             }
             GexfJS.ctxGraphe.strokeStyle = _color;
             traceArc(GexfJS.ctxGraphe, _coords, _coordt);
@@ -1166,18 +1176,28 @@ function traceMap() {
                 var isNodeActive = (GexfJS.params.activeNodes && GexfJS.params.activeNodes[_d.id]);
 
                 // 3. Should it be grey? 
-                // YES, IF we are in fade mode, AND it's not a tag, AND it's not an active node.
                 var shouldBeGrey = ( isFadeMode && !_d.isTag && !isNodeActive );
 
                 // 4. Set the Color
                 var _color;
-                var baseNodeColor = GexfJS.params.muteDefaultColors ? "rgba(180,180,180,0.8)" : _d.color.base;
-                var grisNodeColor = GexfJS.params.muteDefaultColors ? "rgba(100,100,100,0.3)" : _d.color.gris;
-
+                
                 if (GexfJS.params.pinnedElements && GexfJS.params.pinnedElements['n_' + _d.id]) {
+                    // 1. Pinned color always wins
                     _color = GexfJS.params.pinnedElements['n_' + _d.id];
                 }
+                else if (isFadeMode && !shouldBeGrey) {
+                    // 2. Node is actively highlighted (e.g. connected to an active edge, or a CNV)
+                    if (GexfJS.params.highlightColorOverride) {
+                        _color = GexfJS.params.highlightColorOverride;
+                    } else {
+                        // If muted, pop with Magenta. Otherwise use its native embedded color.
+                        _color = GexfJS.params.muteDefaultColors ? "#ff00ff" : _d.color.base;
+                    }
+                }
                 else {
+                    // 3. Background / Default State (It is not highlighted)
+                    var baseNodeColor = GexfJS.params.muteDefaultColors ? "rgba(180,180,180,0.8)" : _d.color.base;
+                    var grisNodeColor = GexfJS.params.muteDefaultColors ? "rgba(100,100,100,0.3)" : _d.color.gris;
                     _color = ( shouldBeGrey ? grisNodeColor : baseNodeColor );
                 }
                 
