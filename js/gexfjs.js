@@ -231,202 +231,6 @@ function Color(_r, _g, _b) {
 
 
 
-function parsePATRIC_GID_Pivot(data, _gids, _sids){
-	_genome_menu={};
-	//pivot structure gid,genome_name,sid
-	for (var p1 in _pt = data.facets.facet_pivot){//pivot table
-		for (var p2 in _pt[p1]){ //gid
-			_gid = _pt[p1][p2].value;
-			_gids.push(_gid);
-			_gn = _pt[p1][p2].pivot[0].value;//gid:gn 1:1
-			_genome_menu[_gid]={'genome_name':_gn,'sids':[]};
-			for (var p3 in seqs = _pt[p1][p2].pivot[0].pivot){//sid
-				_genome_menu[_gid].sids.push(seqs[p3].value);
-				_sids.push(seqs[p3].value);
-			}
-		}
-	}
-	return _genome_menu;
-}
-
-function getPATRIC_ExtraReplicons(_gids, _sids){
-		var replicon_url=GexfJS.params.replicon_url.replace('SIDSTRING',_sids.join()).replace('GIDSTRING',_gids.join());
-		$.ajax({
-			url: replicon_url, 	
-        		dataType: "json",
-        		success: function(data) {
-				_gids_found=[];
-				_sids_found=[];
-				_extras_menu=parsePATRIC_GID_Pivot(data, _gids_found, _sids_found);
-				_genome_menu=GexfJS.params.genome_menu;
-				_locations={};
-				//get other replicon names
-				for (var i in data.items){
-					_locations[data.items[i].sid]=loc={};
-					loc["description"]=data.items[i].description;
-				}	
-				//setup high level numbers
-				for (var g in _extras_menu){
-					num_sid=(_genome_menu[g].sids.length + _extras_menu[g].sids.length).toString();
-					$( "#"+g+"_num" ).append(' of <a href="#" onclick="displayPath(undefined,'+"'"+(_extras_menu[g].sids.concat(_genome_menu[g].sids)).join()+"'"+',undefined); return false;">'+num_sid+'</a>');
-					_sid_list=$( "#"+g+"_sids" );
-					_missing_replicons=[]
-					for (var j in cur_sids= _extras_menu[g].sids){
-						if (cur_sids[j] in GexfJS.path_highlights){
-							_sid_list.append('<li><div class="smallbox" style="background: white"></div><a href="#" onclick="displayPath(undefined,'+"'"+cur_sids[j]+"'"+',undefined); return false;">'+_locations[cur_sids[j]].description+'</a></li>');
-						}
-						else {
-							_missing_replicons.push('<li style="text-color:#DFDFDF;"><div class="smallbox" style="background: white; border-style:none;"></div>'+_locations[cur_sids[j]].description+'</li>');
-						}		
-					}
-					for (var k in _missing_replicons){
-						_sid_list.append(_missing_replicons[k]);
-					}
-				}
-				$( "#genome_list" ).accordion('refresh');//.accordion({ header: "h6", collapsible: true, active: false });
-			},
-			
-			error: function(xhr, ajaxOptions, thrownError){
-				alert(xhr.status);
-				alert(thrownError);
-				GexfJS.params.patric_locations=undefined;
-				GexfJS.params.patric_on= false;
-			}
-		});		
-}	
-	
-
-function getPATRICLocations(location_ref, locations, location_order){
-	if (typeof GexfJS.params.patric_locations === "undefined") {
-		GexfJS.params.patric_locations=locations;
-		GexfJS.params.location_ref=location_ref;
-		GexfJS.params.location_order=location_order;
-		sids=[];
-		for (i in locations){
-			sids.push(i);
-		}	
-		var location_url=GexfJS.params.location_url.replace('SIDSTRING',sids.join());
-		$.ajax({
-			url: location_url, 	
-        		dataType: "json",
-        		success: function(data) {
-				result=[];
-				_locations=GexfJS.params.patric_locations;
-				_location_order=GexfJS.params.location_order;
-				_gids_found=[];
-				_sids_found=[];
-				for (var i in data.items){
-					if(data.items[i].sid in _locations){
-						_locations[data.items[i].sid]["description"]=data.items[i].description;
-					}
-				}	
-				_genome_menu=parsePATRIC_GID_Pivot(data, _gids_found, _sids_found);
-				result.push('<div id="genome_list" >\n');
-				for (var g in _genome_menu){
-					num_sid=_genome_menu[g].sids.length.toString();
-					result.push('<h6 id="'+g+'_header">'+_genome_menu[g].genome_name+' (<span id="'+g+'_num" ><a href="#" onclick="displayPath(undefined,'+"'"+_genome_menu[g].sids.join(',')+"'"+',undefined); return false;">'+num_sid+'</a></span>)</h6>\n<div>\n');
-					result.push('<ul id = '+g+'_sids >\n');
-					for (var j in sid_list=_genome_menu[g].sids){
-						result.push('<li> <div class="smallbox" style="background: black"></div>'+'<a href="#" onclick="displayPath(undefined,'+"'"+sid_list[j]+"'"+',undefined); return false;">'+_locations[sid_list[j]].description+'</a>: '+_locations[sid_list[j]].base)+' </li>/n';
-					}
-					result.push('</ul>\n</div>\n');
-				}
-				result.push('</div>');
-				GexfJS.params.location_ref.html(result.join(''));
-				$( "#genome_list" ).accordion({ header: "h6", collapsible: true, active: false, heightStyle: "content" });
-				GexfJS.params.patric_locations=undefined;
-				GexfJS.params.genome_menu=_genome_menu;
-				getPATRIC_ExtraReplicons(_gids_found, _sids_found);
-			},
-			error: function(xhr, ajaxOptions, thrownError){
-				alert(xhr.status);
-				alert(thrownError);
-				GexfJS.params.patric_locations=undefined;
-				GexfJS.params.patric_on= false;
-			}
-			
-		});
-	}
-}
-
-
-function namePATRICGenomes(feature_ref, genome_map){
-		var location_url=GexfJS.params.genome_url.replace('GIDSTRING',Object.keys(genome_map).join(','));
-		$.ajax({
-			url: location_url, 	
-        		dataType: "json",
-        		success: function(data) {
-                    var html_str = feature_ref.html();
-                    if ("response" in data && "docs" in data["response"]){
-                        $.each(data["response"]["docs"], function(i){
-                            var record = data["response"]["docs"][i];
-                            var re = new RegExp(">"+record["genome_id"]+"<", "g")
-                            html_str = html_str.replace(re,">"+record["genome_name"]+"<");
-                        });
-                        feature_ref.html(html_str);
-                    }
-                },
-                error: function(xhr, ajaxOptions, thrownError){
-                    alert(xhr.status);
-                    alert(thrownError);
-                }
-			
-		});
-}
-
-
-function replaceFeatureLinks(feature_ref, title_ref) {
-	var feature_str=feature_ref.text();
-    var clean_feature_str = feature_str.replace(/""/g, '"');
-
-    genome_map = JSON.parse(clean_feature_str);
-    html_list=[];
-    sids=[];
-    $.each(genome_map, function(gid,seq_map){
-        $.each(seq_map, function(sid,features){
-            sids.push(sid);
-            _info ='<a href="#" onclick="displayPath(undefined,'+"'"+gid+"'"+","+"'"+GexfJS._edge_attr_value["genomes"]+"'"+'); return false;">'+gid+'</a>'+
-                ':<br>'+'<a href="#" onclick="displayPath(undefined,'+"'"+sid+"'"+',undefined); return false;">'+sid+'</a>'+
-                ":<br>["+features+"]";
-            html_list.push(_info);
-        });                            
-    });
-    feature_ref.html(html_list.join('<br>'));
-    if(title_ref.length >0){
-        _info ='<a href="#" onclick="displayPath(undefined,'+"'"+Object.keys(genome_map).join(',')+"'"+","+"'"+GexfJS._edge_attr_value["genomes"]+"'"+'); return false;">'+"Genomes["+String(Object.keys(genome_map).length)+']:</a>&nbsp;'+
-                '<a href="#" onclick="displayPath(undefined,'+"'"+sids.join(',')+"'"+',undefined); return false;">'+"Sequences["+String(sids.length)+']:</a>&nbsp;'+"[Features]";
-        title_ref.html(_info);
-    }
-	if (GexfJS.params.patric_on){
-		namePATRICGenomes(feature_ref, genome_map);
-	}
-}
-
-
-function replaceLocationLinks(location_ref) {
-	var location_str=location_ref.text();
-	var locations=location_str.split(/[ ,]+/);
-	var locations_obj={};
-	var location_order=[];
-	for (var i in locations){
-		var _info= locations[i].split(/[ :]+/);
-		if (_info.length ==2){
-			locations_obj[_info[0]]={
-				sid: _info[0],
-				base: _info[1]
-			};
-			location_order.push(_info[0]);
-			_info[0]='<a href="#" onclick="displayPath(undefined,'+"'"+_info[0]+"'"+',undefined); return false;">'+_info[0]+'</a>';
-		}
-		locations[i]=_info.join(':');
-	}
-	location_ref.html(locations.join('<br>'));
-	if (GexfJS.params.patric_on){
-		getPATRICLocations(location_ref, locations_obj, location_order);
-	}
-}
-	
-
 function displayPath(_eid, _path_str, _path_attr){
 	GexfJS.params.activeEdges={};
 	GexfJS.params.activeNodes = {};
@@ -519,15 +323,6 @@ function displayNode(_nodeIndex, _recentre) {
         }
         _str += '</ul><p></p>';
         $("#leftcontent").html(_str);
-        var location_ref= $("#left_locations");
-        if (location_ref.length > 0){
-            replaceLocationLinks(location_ref);
-        }
-        var features_ref= $("#left_features");
-        var features_title= $("#left_title_features");
-        if (features_ref.length >0){
-            replaceFeatureLinks(features_ref, features_title);
-        }
         if (_recentre) {
             GexfJS.params.centreX = _b.x;
             GexfJS.params.centreY = _b.y;
@@ -832,20 +627,6 @@ function createGraph(data){
                         }
                     });
                 }
-                        
-                if(GexfJS.params.featureMapOn){
-                    $(_attr).each( function(_f) {
-                        if(_f.getAttribute("for")==GexfJS._node_attr_value["features"]){
-                            genome_map = JSON.parse(getAttribute("value"));
-                            $.each(genome_map, function(gid,seq_map){
-                                GexfJS._genomeMap[gid]=Object.keys(seq_map);
-                                $.each(seq_map, function(sid,features){
-                                    GexfJS._seqMap[sid]=features;
-                                });                            
-                            });
-                        }
-                    });
-                }
                 
             _d.coords = {
                 base : {
@@ -869,6 +650,25 @@ function createGraph(data){
                     _for = _a.attr("for");
                 _d.attributes[ _for ? _for : 'attribute_' + _a.attr("id") ] = _a.attr("value");
             });
+            _d.genomes = {};
+            _d.sequences = {};
+            var featAttrId = GexfJS._node_attr_value["features"];
+            if (typeof featAttrId !== "undefined" && _d.attributes[featAttrId]) {
+                try {
+                    var rawFeatJson = String(_d.attributes[featAttrId]).replace(/""/g, '"');
+                    var fMap = JSON.parse(rawFeatJson);
+                    for (var gid in fMap) {
+                        if (gid === "info") continue;
+                        _d.genomes[gid] = true;
+                        var cMap = fMap[gid];
+                        if (cMap && typeof cMap === "object") {
+                            for (var sid in cMap) {
+                                _d.sequences[sid] = true;
+                            }
+                        }
+                    }
+                } catch (e) {}
+            }
             GexfJS.graph.nodeIndexById.push(_id);
             GexfJS.graph.nodeIndexByLabel.push(_label.toLowerCase());
             GexfJS.graph.nodeList.push(_d);
@@ -882,6 +682,8 @@ function createGraph(data){
         var counter =0;
         $(_edges).each(function() {
             var pathList=[];
+            var _edgeGenomes = {};
+            var _edgeSequences = {};
             var _e = $(this),
                 _sid = _e.attr("source"),
                 _six = GexfJS.graph.nodeIndexById.indexOf(_sid);
@@ -896,15 +698,6 @@ function createGraph(data){
                     _e.attr("id", String(counter));
                 //}
                 counter+=1;
-
-                /*_pattr=_e.find('attvalue[for="'+GexfJS.params.pathAttr+'"]').attr('value'),
-                _p = ( _pattr ? _pattr.split(/[ ,]+/) : _e.attr("path"));
-                $(_p).each(function(i, _path) {
-                    if (!(_path in GexfJS.path_highlights)){
-                        GexfJS.path_highlights[_path]={}
-                    }
-                    GexfJS.path_highlights[_path][_eid] = true;
-                });*/
 
             $.each( GexfJS._edge_attr_value, function(k, cur_attr){
                 _pattr=_e.find('attvalue[for="'+cur_attr+'"]').attr('value');
@@ -921,6 +714,11 @@ function createGraph(data){
                             GexfJS.path_highlights[cur_attr][clean_path]={}
                         }
                         GexfJS.path_highlights[cur_attr][clean_path][_eid] = true;
+                        if (k === "genomes") {
+                            _edgeGenomes[clean_path] = true;
+                        } else if (k === "sequences") {
+                            _edgeSequences[clean_path] = true;
+                        }
                     });
                 }
 
@@ -929,8 +727,6 @@ function createGraph(data){
                     pathList = clean_p;
                 }
             });
-
-                
 
             if (_col.length) {
                 var _r = _col.attr("r"),
@@ -956,6 +752,8 @@ function createGraph(data){
                 weight : parseFloat(_w || 0),
                 color : "rgba(" + _r + "," + _g + "," + _b + ",.7)",
                 path : pathList,
+                genomes : _edgeGenomes,
+                sequences : _edgeSequences,
                 id : _eid
             });
             GexfJS.graph.edgeLookup[_eid]=GexfJS.graph.edgeList[GexfJS.graph.edgeList.length-1];
@@ -1076,6 +874,9 @@ function traceMap() {
     }
     
     var _centralNode = ( ( GexfJS.params.activeNode != -1 ) ? GexfJS.params.activeNode : GexfJS.params.currentNode );
+    var _hasGenomeFilter = GexfJS.params.activeGenomeFilter && !jQuery.isEmptyObject(GexfJS.params.activeGenomeFilter);
+    var _hasContigFilter = GexfJS.params.activeContigFilter && !jQuery.isEmptyObject(GexfJS.params.activeContigFilter);
+    var _filterActive = Boolean(_hasGenomeFilter || _hasContigFilter);
     
     for (var i in GexfJS.graph.nodeList) {
         var _d = GexfJS.graph.nodeList[i];
@@ -1085,7 +886,25 @@ function traceMap() {
             r : _nodeSizeFactor * _d.coords.base.r 
         }
         _d.withinFrame = ( ( _d.coords.actual.x + _d.coords.actual.r > 0 ) && ( _d.coords.actual.x - _d.coords.actual.r < GexfJS.graphZone.width ) && ( _d.coords.actual.y + _d.coords.actual.r > 0) && (_d.coords.actual.y - _d.coords.actual.r < GexfJS.graphZone.height) );
-        _d.visible = ( GexfJS.params.currentNode == -1 || i == _centralNode || GexfJS.params.showEdges );
+        var _passesFilter = true;
+        if (_filterActive) {
+            _passesFilter = false;
+            if (_hasGenomeFilter && _d.genomes) {
+                for (var _fg in GexfJS.params.activeGenomeFilter) {
+                    if (_d.genomes[_fg]) { _passesFilter = true; break; }
+                }
+            }
+            if (!_passesFilter && _hasContigFilter && _d.sequences) {
+                for (var _fc in GexfJS.params.activeContigFilter) {
+                    if (_d.sequences[_fc]) { _passesFilter = true; break; }
+                }
+            }
+        }
+        _d.filteredOut = !_passesFilter;
+        _d.visible = _passesFilter && ( GexfJS.params.currentNode == -1 || i == _centralNode || GexfJS.params.showEdges );
+    }
+    if (_centralNode != -1 && GexfJS.graph.nodeList[_centralNode] && GexfJS.graph.nodeList[_centralNode].filteredOut) {
+        _centralNode = -1;
     }
     
     var _tagsMisEnValeur = [];
@@ -1102,6 +921,21 @@ function traceMap() {
             _tix = _d.target,
             _ds = GexfJS.graph.nodeList[_six],
             _dt = GexfJS.graph.nodeList[_tix];
+        if (_filterActive) {
+            if (_ds.filteredOut || _dt.filteredOut) continue;
+            var _edgePasses = false;
+            if (_hasGenomeFilter && _d.genomes) {
+                for (var _efg in GexfJS.params.activeGenomeFilter) {
+                    if (_d.genomes[_efg]) { _edgePasses = true; break; }
+                }
+            }
+            if (!_edgePasses && _hasContigFilter && _d.sequences) {
+                for (var _efc in GexfJS.params.activeContigFilter) {
+                    if (_d.sequences[_efc]) { _edgePasses = true; break; }
+                }
+            }
+            if (!_edgePasses) continue;
+        }
 	    var _eid = _d.id;
         var active_edge = (_eid in GexfJS.params.activeEdges);
 	//if (active_edge && _centralNode == -1){
