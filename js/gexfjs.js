@@ -366,27 +366,90 @@ function updateWorkspaceBounds() {
     }
 }
 
+function finalizeBoxSelection() {
+    if (GexfJS.boxSelecting && GexfJS.mouseHasMoved && GexfJS.selectionBox && GexfJS.graph) {
+        var sb = GexfJS.selectionBox;
+        var rx1 = Math.min(sb.x1, sb.x2),
+            rx2 = Math.max(sb.x1, sb.x2),
+            ry1 = Math.min(sb.y1, sb.y2),
+            ry2 = Math.max(sb.y1, sb.y2);
+        var boxedIndices = [];
+        for (var i = 0; i < GexfJS.graph.nodeList.length; i++) {
+            var _d = GexfJS.graph.nodeList[i];
+            if (_d && _d.visible && !_d.filteredOut && _d.coords && _d.coords.actual) {
+                var _c = _d.coords.actual;
+                if (_c.x + _c.r >= rx1 && _c.x - _c.r <= rx2 && _c.y + _c.r >= ry1 && _c.y - _c.r <= ry2) {
+                    boxedIndices.push(i);
+                }
+            }
+        }
+        if (window.onBoxSelectNodes) {
+            window.onBoxSelectNodes(boxedIndices, Boolean(GexfJS.boxSelectAdditive));
+        }
+    }
+    GexfJS.boxSelecting = false;
+    GexfJS.boxSelectAdditive = false;
+    GexfJS.selectionBox = null;
+    if (GexfJS.oldParams) delete GexfJS.oldParams.zoomLevel;
+}
+
 function startMove(evt) {
     evt.preventDefault();
-    GexfJS.dragOn = true;
+    var isCarte = (this && this.id === "carte");
+    var isBoxTrigger = isCarte && Boolean((GexfJS.params && GexfJS.params.boxSelectMode) || evt.shiftKey);
+    if (isBoxTrigger) {
+        var off = $(this).offset();
+        var mx = evt.pageX - off.left;
+        var my = evt.pageY - off.top;
+        GexfJS.boxSelecting = true;
+        GexfJS.boxSelectAdditive = Boolean(evt.shiftKey || evt.metaKey || evt.ctrlKey);
+        GexfJS.selectionBox = { x1: mx, y1: my, x2: mx, y2: my };
+        GexfJS.dragOn = false;
+    } else {
+        GexfJS.boxSelecting = false;
+        GexfJS.selectionBox = null;
+        GexfJS.dragOn = true;
+    }
     GexfJS.lastMouse = {
         x : evt.pageX,
         y : evt.pageY
-    }
+    };
     GexfJS.mouseHasMoved = false;
 }
 
 function endMove(evt) {
-    document.body.style.cursor = "default";
+    if (GexfJS.boxSelecting && GexfJS.mouseHasMoved) {
+        finalizeBoxSelection();
+    } else if (GexfJS.boxSelecting) {
+        GexfJS.boxSelecting = false;
+        GexfJS.boxSelectAdditive = false;
+        GexfJS.selectionBox = null;
+        if (GexfJS.oldParams) delete GexfJS.oldParams.zoomLevel;
+    }
+    document.body.style.cursor = (GexfJS.params && GexfJS.params.boxSelectMode) ? "crosshair" : "default";
     GexfJS.dragOn = false;
     GexfJS.mouseHasMoved = false;
 }
 
 function onGraphClick(evt) {
+    if (GexfJS.boxSelecting && GexfJS.mouseHasMoved) {
+        finalizeBoxSelection();
+        endMove();
+        return;
+    }
     if (!GexfJS.mouseHasMoved) {
+        GexfJS.boxSelecting = false;
+        GexfJS.selectionBox = null;
+        var isAdditive = Boolean(evt && (evt.shiftKey || evt.metaKey || evt.ctrlKey));
+        if (isAdditive && GexfJS.params.activeNode != -1 && window.onAdditiveNodeClick) {
+            window.onAdditiveNodeClick(GexfJS.params.activeNode);
+            endMove();
+            return;
+        }
+
         displayNode(GexfJS.params.activeNode);
         
-        // ALWAYS clear these states on any click to reset the view.
+        // ALWAYS clear these states on a non-additive click to reset the view.
         // If a node was clicked, displayNode handles its own focus.
         // If background was clicked (-1), this safely returns to default.
         GexfJS.params.activeEdges = {};
@@ -420,13 +483,22 @@ function onGraphMove(evt) {
     GexfJS.mousePosition = {
         x : evt.pageX - $(this).offset().left,
         y : evt.pageY - $(this).offset().top
-    }
-    if (GexfJS.dragOn) {
+    };
+    if (GexfJS.boxSelecting && GexfJS.selectionBox) {
+        document.body.style.cursor = "crosshair";
+        GexfJS.selectionBox.x2 = GexfJS.mousePosition.x;
+        GexfJS.selectionBox.y2 = GexfJS.mousePosition.y;
+        if (Math.abs(GexfJS.selectionBox.x2 - GexfJS.selectionBox.x1) > 4 ||
+            Math.abs(GexfJS.selectionBox.y2 - GexfJS.selectionBox.y1) > 4) {
+            GexfJS.mouseHasMoved = true;
+        }
+        if (GexfJS.oldParams) delete GexfJS.oldParams.zoomLevel;
+    } else if (GexfJS.dragOn) {
         changeGraphPosition(evt,GexfJS.echelleGenerale);
         GexfJS.mouseHasMoved = true;
     } else {
         GexfJS.params.activeNode = getNodeFromPos(GexfJS.mousePosition);
-        document.body.style.cursor = ( GexfJS.params.activeNode != -1 ? "pointer" : "default" );
+        document.body.style.cursor = ( GexfJS.params.activeNode != -1 ? "pointer" : ((GexfJS.params && GexfJS.params.boxSelectMode) ? "crosshair" : "default") );
     }
 }
 
@@ -1242,10 +1314,10 @@ function traceMap() {
                     GexfJS.ctxGraphe.closePath();
                     GexfJS.ctxGraphe.stroke();
                     GexfJS.ctxGraphe.restore();
-                } else if (isFocalNode && GexfJS.params.activePhenomenon) {
+                } else if (isFocalNode) {
                     GexfJS.ctxGraphe.save();
                     GexfJS.ctxGraphe.lineWidth = Math.max(1.8, _d.coords.real.r * 0.22);
-                    var ringCol = "#6a1b9a";
+                    var ringCol = GexfJS.params.highlightColorOverride || "#6a1b9a";
                     if (GexfJS.params.locusSpotlightActive) {
                         if (!isNodeSpotlighted) ringCol = "#90a4ae";
                         else if (spotNode.hasRef && !spotNode.hasEvent) ringCol = "#01579b";
@@ -1364,6 +1436,25 @@ function traceMap() {
             GexfJS.ctxGraphe.fillStyle = "rgb(0,0,0)";
             GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x, _dnc.coords.real.y);
         }
+    }
+
+    // Draw live rubber-band selection box if active
+    if (GexfJS.boxSelecting && GexfJS.selectionBox && GexfJS.mouseHasMoved) {
+        var _sb = GexfJS.selectionBox;
+        var _bx = Math.min(_sb.x1, _sb.x2),
+            _by = Math.min(_sb.y1, _sb.y2),
+            _bw = Math.abs(_sb.x2 - _sb.x1),
+            _bh = Math.abs(_sb.y2 - _sb.y1);
+        GexfJS.ctxGraphe.save();
+        GexfJS.ctxGraphe.fillStyle = "rgba(156, 39, 176, 0.12)";
+        GexfJS.ctxGraphe.strokeStyle = "#8e24aa";
+        GexfJS.ctxGraphe.lineWidth = 1.8;
+        if (GexfJS.ctxGraphe.setLineDash) {
+            GexfJS.ctxGraphe.setLineDash([6, 4]);
+        }
+        GexfJS.ctxGraphe.fillRect(_bx, _by, _bw, _bh);
+        GexfJS.ctxGraphe.strokeRect(_bx, _by, _bw, _bh);
+        GexfJS.ctxGraphe.restore();
     }
     
     GexfJS.ctxMini.putImageData(GexfJS.imageMini, 0, 0);
