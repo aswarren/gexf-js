@@ -391,7 +391,12 @@ function onGraphClick(evt) {
         // If background was clicked (-1), this safely returns to default.
         GexfJS.params.activeEdges = {};
         GexfJS.params.path_active = false;
-        GexfJS.params.activeNodes = {}; 
+        GexfJS.params.activeNodes = {};
+        GexfJS.params.anchorNodes = {};
+        GexfJS.params.dashedEdges = {};
+        GexfJS.params.referenceEdges = {};
+        GexfJS.params.locusContigFilter = {};
+        GexfJS.params.focusLocusActive = false;
     }
     endMove();
 }
@@ -652,11 +657,13 @@ function createGraph(data){
             });
             _d.genomes = {};
             _d.sequences = {};
+            _d.featureMap = null;
             var featAttrId = GexfJS._node_attr_value["features"];
             if (typeof featAttrId !== "undefined" && _d.attributes[featAttrId]) {
                 try {
                     var rawFeatJson = String(_d.attributes[featAttrId]).replace(/""/g, '"');
                     var fMap = JSON.parse(rawFeatJson);
+                    _d.featureMap = fMap;
                     for (var gid in fMap) {
                         if (gid === "info") continue;
                         _d.genomes[gid] = true;
@@ -876,7 +883,9 @@ function traceMap() {
     var _centralNode = ( ( GexfJS.params.activeNode != -1 ) ? GexfJS.params.activeNode : GexfJS.params.currentNode );
     var _hasGenomeFilter = GexfJS.params.activeGenomeFilter && !jQuery.isEmptyObject(GexfJS.params.activeGenomeFilter);
     var _hasContigFilter = GexfJS.params.activeContigFilter && !jQuery.isEmptyObject(GexfJS.params.activeContigFilter);
-    var _filterActive = Boolean(_hasGenomeFilter || _hasContigFilter);
+    var _isSubgraphLocusFilter = Boolean(GexfJS.params.focusLocusActive && GexfJS.params.locusFilterMode === 'subgraph');
+    var _hasLocusFilter = Boolean(GexfJS.params.focusLocusActive && (_isSubgraphLocusFilter || (GexfJS.params.locusContigFilter && !jQuery.isEmptyObject(GexfJS.params.locusContigFilter))));
+    var _filterActive = Boolean(_hasGenomeFilter || _hasContigFilter || _hasLocusFilter);
     
     for (var i in GexfJS.graph.nodeList) {
         var _d = GexfJS.graph.nodeList[i];
@@ -886,20 +895,37 @@ function traceMap() {
             r : _nodeSizeFactor * _d.coords.base.r 
         }
         _d.withinFrame = ( ( _d.coords.actual.x + _d.coords.actual.r > 0 ) && ( _d.coords.actual.x - _d.coords.actual.r < GexfJS.graphZone.width ) && ( _d.coords.actual.y + _d.coords.actual.r > 0) && (_d.coords.actual.y - _d.coords.actual.r < GexfJS.graphZone.height) );
-        var _passesFilter = true;
-        if (_filterActive) {
-            _passesFilter = false;
+        var _passesManual = true;
+        if (_hasGenomeFilter || _hasContigFilter) {
+            _passesManual = false;
             if (_hasGenomeFilter && _d.genomes) {
                 for (var _fg in GexfJS.params.activeGenomeFilter) {
-                    if (_d.genomes[_fg]) { _passesFilter = true; break; }
+                    if (_d.genomes[_fg]) { _passesManual = true; break; }
                 }
             }
-            if (!_passesFilter && _hasContigFilter && _d.sequences) {
+            if (!_passesManual && _hasContigFilter && _d.sequences) {
                 for (var _fc in GexfJS.params.activeContigFilter) {
-                    if (_d.sequences[_fc]) { _passesFilter = true; break; }
+                    if (_d.sequences[_fc]) { _passesManual = true; break; }
                 }
             }
         }
+        var _passesLocus = true;
+        if (_hasLocusFilter) {
+            if ((GexfJS.params.activeNodes && GexfJS.params.activeNodes[_d.id]) ||
+                (GexfJS.params.anchorNodes && GexfJS.params.anchorNodes[_d.id])) {
+                _passesLocus = true;
+            } else if (_isSubgraphLocusFilter) {
+                _passesLocus = false;
+            } else {
+                _passesLocus = false;
+                if (_d.sequences) {
+                    for (var _lc in GexfJS.params.locusContigFilter) {
+                        if (_d.sequences[_lc]) { _passesLocus = true; break; }
+                    }
+                }
+            }
+        }
+        var _passesFilter = _passesManual && _passesLocus;
         _d.filteredOut = !_passesFilter;
         _d.visible = _passesFilter && ( GexfJS.params.currentNode == -1 || i == _centralNode || GexfJS.params.showEdges );
     }
@@ -914,6 +940,7 @@ function traceMap() {
     }
     
     var _displayEdges = ( GexfJS.params.showEdges && GexfJS.params.currentNode == -1 );
+    var _deferredActiveEdges = [];
     
     for (var i in GexfJS.graph.edgeList) {
         var _d = GexfJS.graph.edgeList[i],
@@ -921,26 +948,38 @@ function traceMap() {
             _tix = _d.target,
             _ds = GexfJS.graph.nodeList[_six],
             _dt = GexfJS.graph.nodeList[_tix];
+        var _eid = _d.id;
+        var active_edge = (_eid in GexfJS.params.activeEdges);
+        var ref_edge = Boolean(GexfJS.params.referenceEdges && GexfJS.params.referenceEdges[_eid]);
+
         if (_filterActive) {
             if (_ds.filteredOut || _dt.filteredOut) continue;
-            var _edgePasses = false;
-            if (_hasGenomeFilter && _d.genomes) {
-                for (var _efg in GexfJS.params.activeGenomeFilter) {
-                    if (_d.genomes[_efg]) { _edgePasses = true; break; }
+            if (_hasGenomeFilter || _hasContigFilter) {
+                var _edgePassesManual = false;
+                if (_hasGenomeFilter && _d.genomes) {
+                    for (var _efg in GexfJS.params.activeGenomeFilter) {
+                        if (_d.genomes[_efg]) { _edgePassesManual = true; break; }
+                    }
                 }
-            }
-            if (!_edgePasses && _hasContigFilter && _d.sequences) {
-                for (var _efc in GexfJS.params.activeContigFilter) {
-                    if (_d.sequences[_efc]) { _edgePasses = true; break; }
+                if (!_edgePassesManual && _hasContigFilter && _d.sequences) {
+                    for (var _efc in GexfJS.params.activeContigFilter) {
+                        if (_d.sequences[_efc]) { _edgePassesManual = true; break; }
+                    }
                 }
+                if (!_edgePassesManual) continue;
             }
-            if (!_edgePasses) continue;
+            if (_hasLocusFilter && !active_edge && !ref_edge) {
+                if (_isSubgraphLocusFilter) continue;
+                var _edgePassesLocus = false;
+                if (_d.sequences) {
+                    for (var _elc in GexfJS.params.locusContigFilter) {
+                        if (_d.sequences[_elc]) { _edgePassesLocus = true; break; }
+                    }
+                }
+                if (!_edgePassesLocus) continue;
+            }
         }
-	    var _eid = _d.id;
-        var active_edge = (_eid in GexfJS.params.activeEdges);
-	//if (active_edge && _centralNode == -1){
-	//	_centralNode = _six;
-	//}
+
         var _isLinked = false;
         if (_centralNode != -1) {
             if (_six == _centralNode) {
@@ -957,34 +996,144 @@ function traceMap() {
             }
         }
 
-        if (  (( _isLinked || _displayEdges ) && ( _ds.withinFrame || _dt.withinFrame ) &&  _ds.visible && _dt.visible) ||  active_edge) {
-            GexfJS.ctxGraphe.lineWidth = _edgeSizeFactor * _d.width;
+        var _spotEdge = (GexfJS.params.locusSpotlightActive && GexfJS.params.locusEdgeSpotlight) ? GexfJS.params.locusEdgeSpotlight[_eid] : null;
+
+        if (  (( _isLinked || _displayEdges ) && ( _ds.withinFrame || _dt.withinFrame ) &&  _ds.visible && _dt.visible) || active_edge || ref_edge || _spotEdge) {
             var _coords = ( ( GexfJS.params.useLens && GexfJS.mousePosition ) ? calcCoord( GexfJS.mousePosition.x , GexfJS.mousePosition.y , _ds.coords.actual ) : _ds.coords.actual );
             _coordt = ( (GexfJS.params.useLens && GexfJS.mousePosition) ? calcCoord( GexfJS.mousePosition.x , GexfJS.mousePosition.y , _dt.coords.actual ) : _dt.coords.actual );
             var _color;
+            var _lineW = _edgeSizeFactor * _d.width;
+            var _isDashed = Boolean(GexfJS.params.dashedEdges && GexfJS.params.dashedEdges[_eid]);
 
-            if (GexfJS.params.pinnedElements && GexfJS.params.pinnedElements['e_' + _d.id]) {
-                // 1. Pinned Colors always win
-                _color = GexfJS.params.pinnedElements['e_' + _d.id];
-            }
-            else if (GexfJS.params.path_active && active_edge) {
-                // 2. It's a highlighted edge! Make it visible.
-                if (GexfJS.params.highlightColorOverride) {
-                    _color = GexfJS.params.highlightColorOverride; // User override
+            if (GexfJS.params.locusSpotlightActive) {
+                if (_spotEdge && (_spotEdge.hasEvent || _spotEdge.hasRef)) {
+                    _deferredActiveEdges.push({
+                        coords: _coords,
+                        coordt: _coordt,
+                        lineWidth: Math.max(2.8, _lineW * 1.4),
+                        dashed: _isDashed,
+                        spotEdge: _spotEdge
+                    });
                 } else {
-                    // If muted, use Magenta so it pops. If not muted, use its native embedded color.
-                    _color = GexfJS.params.muteDefaultColors ? "#ff00ff" : _d.color; 
+                    // Non-spotlighted edges go to soft neutral grey
+                    GexfJS.ctxGraphe.lineWidth = (active_edge || ref_edge) ? Math.max(1.6, _lineW) : _lineW;
+                    GexfJS.ctxGraphe.strokeStyle = (active_edge || ref_edge) ? "rgba(155,168,180,0.42)" : "rgba(180,190,200,0.18)";
+                    traceArc(GexfJS.ctxGraphe, _coords, _coordt);
+                }
+            } else {
+                if (ref_edge && !active_edge) {
+                    _color = "#0288d1";
+                    _lineW = Math.max(2.2, _lineW * 1.2);
+                }
+                else if (GexfJS.params.pinnedElements && GexfJS.params.pinnedElements['e_' + _d.id]) {
+                    // 1. Pinned Colors always win
+                    _color = GexfJS.params.pinnedElements['e_' + _d.id];
+                    if (active_edge) {
+                        _lineW = Math.max(2.6, _lineW * 1.35);
+                    }
+                }
+                else if (GexfJS.params.path_active && active_edge) {
+                    // 2. It's a highlighted edge! Make it visible with a minimum readable stroke width.
+                    _lineW = Math.max(2.6, _lineW * 1.35);
+                    if (GexfJS.params.highlightColorOverride) {
+                        _color = GexfJS.params.highlightColorOverride; // User override
+                    } else {
+                        _color = GexfJS.params.muteDefaultColors ? "#d500f9" : "#d500f9"; 
+                    }
+                }
+                else {
+                    // 3. Not highlighted (either neighbor hover or faded background)
+                    var baseEdgeColor = GexfJS.params.muteDefaultColors ? "rgba(180,180,180,0.5)" : _d.color;
+                    _color = ( (_isLinked && !GexfJS.params.path_active) ? baseEdgeColor : "rgba(100,100,100,0.18)" );
+                }
+
+                if (active_edge || ref_edge) {
+                    _deferredActiveEdges.push({
+                        coords: _coords,
+                        coordt: _coordt,
+                        color: _color,
+                        lineWidth: _lineW,
+                        dashed: _isDashed,
+                        spotEdge: null
+                    });
+                } else {
+                    GexfJS.ctxGraphe.lineWidth = _lineW;
+                    GexfJS.ctxGraphe.strokeStyle = _color;
+                    traceArc(GexfJS.ctxGraphe, _coords, _coordt);
                 }
             }
-            else {
-                // 3. Not highlighted (either neighbor hover or faded background)
-                var baseEdgeColor = GexfJS.params.muteDefaultColors ? "rgba(180,180,180,0.5)" : _d.color;
-                _color = ( (_isLinked && !GexfJS.params.path_active) ? baseEdgeColor : "rgba(100,100,100,0.2)" );
-            }
-            GexfJS.ctxGraphe.strokeStyle = _color;
-            traceArc(GexfJS.ctxGraphe, _coords, _coordt);
         }
     }
+
+    // Helper to draw a spotlighted edge track with optional perpendicular offset and directional arrowhead
+    var drawSpotlightTrack = function(ctx, c1, c2, color, lw, dashed, dir, offsetPx) {
+        var dx = c2.x - c1.x;
+        var dy = c2.y - c1.y;
+        var len = Math.sqrt(dx * dx + dy * dy);
+        if (len < 1e-3) return;
+        var nx = -dy / len;
+        var ny = dx / len;
+        var ox = nx * (offsetPx || 0);
+        var oy = ny * (offsetPx || 0);
+        var sc = { x: c1.x + ox, y: c1.y + oy };
+        var tc = { x: c2.x + ox, y: c2.y + oy };
+
+        ctx.save();
+        ctx.lineWidth = lw;
+        ctx.strokeStyle = color;
+        if (dashed && ctx.setLineDash) {
+            ctx.setLineDash([7, 4]);
+        }
+        traceArc(ctx, sc, tc);
+        if (dashed && ctx.setLineDash) {
+            ctx.setLineDash([]);
+        }
+
+        // Draw directional chevron/arrowhead along the straight chord if orientation direction (1 or -1) is known
+        if ((dir === 1 || dir === -1) && len > 18) {
+            var ux = (dx / len) * dir;
+            var uy = (dy / len) * dir;
+            var mx = (sc.x + tc.x) * 0.5;
+            var my = (sc.y + tc.y) * 0.5;
+            var headLen = Math.min(9, Math.max(6, lw * 2.3));
+            var headW = headLen * 0.62;
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(mx + ux * (headLen * 0.55), my + uy * (headLen * 0.55));
+            ctx.lineTo(mx - ux * (headLen * 0.45) - uy * headW, my - uy * (headLen * 0.45) + ux * headW);
+            ctx.lineTo(mx - ux * (headLen * 0.45) + uy * headW, my - uy * (headLen * 0.45) - ux * headW);
+            ctx.closePath();
+            ctx.fill();
+        }
+        ctx.restore();
+    };
+
+    // Pass 2: Draw active / spotlighted edges on top of faded background edges
+    for (var aeIdx = 0; aeIdx < _deferredActiveEdges.length; aeIdx++) {
+        var _ae = _deferredActiveEdges[aeIdx];
+        if (_ae.spotEdge) {
+            var se = _ae.spotEdge;
+            if (se.hasEvent && se.hasRef) {
+                drawSpotlightTrack(GexfJS.ctxGraphe, _ae.coords, _ae.coordt, "#d500f9", _ae.lineWidth, _ae.dashed, se.eventDir, 2.4);
+                drawSpotlightTrack(GexfJS.ctxGraphe, _ae.coords, _ae.coordt, "#0288d1", _ae.lineWidth, false, se.refDir, -2.4);
+            } else if (se.hasEvent) {
+                drawSpotlightTrack(GexfJS.ctxGraphe, _ae.coords, _ae.coordt, "#d500f9", _ae.lineWidth, _ae.dashed, se.eventDir, 0);
+            } else if (se.hasRef) {
+                drawSpotlightTrack(GexfJS.ctxGraphe, _ae.coords, _ae.coordt, "#0288d1", _ae.lineWidth, false, se.refDir, 0);
+            }
+        } else {
+            GexfJS.ctxGraphe.lineWidth = _ae.lineWidth;
+            GexfJS.ctxGraphe.strokeStyle = _ae.color;
+            if (_ae.dashed && GexfJS.ctxGraphe.setLineDash) {
+                GexfJS.ctxGraphe.setLineDash([7, 4]);
+            }
+            traceArc(GexfJS.ctxGraphe, _ae.coords, _ae.coordt);
+            if (_ae.dashed && GexfJS.ctxGraphe.setLineDash) {
+                GexfJS.ctxGraphe.setLineDash([]);
+            }
+        }
+    }
+
     GexfJS.ctxGraphe.lineWidth = 4;
     GexfJS.ctxGraphe.strokeStyle = "rgba(0,100,0,0.8)";
     
@@ -993,7 +1142,8 @@ function traceMap() {
         _dnc.coords.real = ( (GexfJS.params.useLens && GexfJS.mousePosition ) ? calcCoord( GexfJS.mousePosition.x , GexfJS.mousePosition.y , _dnc.coords.actual ) : _dnc.coords.actual );
     }
     
-    var hasActiveNodes = GexfJS.params.activeNodes && !jQuery.isEmptyObject(GexfJS.params.activeNodes);
+    var hasActiveNodes = (GexfJS.params.activeNodes && !jQuery.isEmptyObject(GexfJS.params.activeNodes)) ||
+                         (GexfJS.params.anchorNodes && !jQuery.isEmptyObject(GexfJS.params.anchorNodes));
     var isFadeMode = (_tagsMisEnValeur.length > 0 || hasActiveNodes);
 
     for (var i in GexfJS.graph.nodeList) {
@@ -1005,33 +1155,57 @@ function traceMap() {
                 // 1. Is this node connected to an active edge?
                 _d.isTag = ( _tagsMisEnValeur.indexOf(parseInt(i)) != -1 );
 
-                // 2. Is this node specifically selected (e.g., a CNV)?
-                // FIX: Use _d.id, not i!
-                var isNodeActive = (GexfJS.params.activeNodes && GexfJS.params.activeNodes[_d.id]);
+                // 2. Is this node a focal active node or a flanking conserved anchor node?
+                var isFocalNode = Boolean(GexfJS.params.activeNodes && GexfJS.params.activeNodes[_d.id]);
+                var isAnchorNode = Boolean(GexfJS.params.anchorNodes && GexfJS.params.anchorNodes[_d.id]);
+                var isNodeActive = isFocalNode || isAnchorNode;
+                var spotNode = (GexfJS.params.locusSpotlightActive && GexfJS.params.locusNodeSpotlight) ? GexfJS.params.locusNodeSpotlight[_d.id] : null;
+                var isNodeSpotlighted = Boolean(spotNode && (spotNode.hasEvent || spotNode.hasRef));
 
                 // 3. Should it be grey? 
-                var shouldBeGrey = ( isFadeMode && !_d.isTag && !isNodeActive );
+                var shouldBeGrey = GexfJS.params.locusSpotlightActive
+                    ? !isNodeSpotlighted
+                    : ( isFadeMode && !_d.isTag && !isNodeActive );
 
                 // 4. Set the Color
                 var _color;
-                
-                if (GexfJS.params.pinnedElements && GexfJS.params.pinnedElements['n_' + _d.id]) {
+                if (GexfJS.params.locusSpotlightActive) {
+                    if (isNodeSpotlighted) {
+                        if (spotNode.hasEvent && !spotNode.hasRef) {
+                            _color = "#d500f9";
+                        } else if (spotNode.hasRef && !spotNode.hasEvent) {
+                            _color = "#0288d1";
+                        } else {
+                            // Shared by both spotlighted Event and Reference contigs: fill Blue, draw Magenta half-disc below
+                            _color = "#0288d1";
+                        }
+                    } else if (isNodeActive) {
+                        // Unvisited locus node: visible muted slate grey
+                        _color = "#cfd8dc";
+                    } else {
+                        _color = "rgba(195,203,210,0.25)";
+                    }
+                }
+                else if (isAnchorNode && !isFocalNode) {
+                    // Flanking conserved anchor node: keep native conservation fill (or soft emerald tint if muted)
+                    _color = GexfJS.params.muteDefaultColors ? "#81c784" : _d.color.base;
+                }
+                else if (GexfJS.params.pinnedElements && GexfJS.params.pinnedElements['n_' + _d.id]) {
                     // 1. Pinned color always wins
                     _color = GexfJS.params.pinnedElements['n_' + _d.id];
                 }
                 else if (isFadeMode && !shouldBeGrey) {
-                    // 2. Node is actively highlighted (e.g. connected to an active edge, or a CNV)
+                    // 2. Node is actively highlighted (e.g. focal phenomenon node)
                     if (GexfJS.params.highlightColorOverride) {
                         _color = GexfJS.params.highlightColorOverride;
                     } else {
-                        // If muted, pop with Magenta. Otherwise use its native embedded color.
-                        _color = GexfJS.params.muteDefaultColors ? "#ff00ff" : _d.color.base;
+                        _color = GexfJS.params.muteDefaultColors ? "#d500f9" : _d.color.base;
                     }
                 }
                 else {
                     // 3. Background / Default State (It is not highlighted)
                     var baseNodeColor = GexfJS.params.muteDefaultColors ? "rgba(180,180,180,0.8)" : _d.color.base;
-                    var grisNodeColor = GexfJS.params.muteDefaultColors ? "rgba(100,100,100,0.3)" : _d.color.gris;
+                    var grisNodeColor = GexfJS.params.muteDefaultColors ? "rgba(100,100,100,0.22)" : _d.color.gris;
                     _color = ( shouldBeGrey ? grisNodeColor : baseNodeColor );
                 }
                 
@@ -1040,6 +1214,43 @@ function traceMap() {
                 GexfJS.ctxGraphe.arc( _d.coords.real.x , _d.coords.real.y , _d.coords.real.r , 0 , Math.PI*2 , true );
                 GexfJS.ctxGraphe.closePath();
                 GexfJS.ctxGraphe.fill();
+
+                // If shared by both Event and Reference spotlighted contigs, fill left half in Magenta (#d500f9) and right half in Ocean Blue (#0288d1)
+                if (GexfJS.params.locusSpotlightActive && spotNode && spotNode.hasEvent && spotNode.hasRef) {
+                    GexfJS.ctxGraphe.save();
+                    GexfJS.ctxGraphe.fillStyle = "#d500f9";
+                    GexfJS.ctxGraphe.beginPath();
+                    GexfJS.ctxGraphe.arc( _d.coords.real.x , _d.coords.real.y , _d.coords.real.r , Math.PI * 0.5 , Math.PI * 1.5 , false );
+                    GexfJS.ctxGraphe.closePath();
+                    GexfJS.ctxGraphe.fill();
+                    GexfJS.ctxGraphe.restore();
+                }
+
+                // 5. Draw role halo ring for focal vs. flanking anchor nodes when highlighting phenomena
+                if (isAnchorNode && !isFocalNode) {
+                    GexfJS.ctxGraphe.save();
+                    GexfJS.ctxGraphe.lineWidth = Math.max(2.4, _d.coords.real.r * 0.30);
+                    GexfJS.ctxGraphe.strokeStyle = (GexfJS.params.locusSpotlightActive && !isNodeSpotlighted) ? "#90a4ae" : "#2e7d32";
+                    GexfJS.ctxGraphe.beginPath();
+                    GexfJS.ctxGraphe.arc( _d.coords.real.x , _d.coords.real.y , _d.coords.real.r + 1.6 , 0 , Math.PI*2 , true );
+                    GexfJS.ctxGraphe.closePath();
+                    GexfJS.ctxGraphe.stroke();
+                    GexfJS.ctxGraphe.restore();
+                } else if (isFocalNode && GexfJS.params.activePhenomenon) {
+                    GexfJS.ctxGraphe.save();
+                    GexfJS.ctxGraphe.lineWidth = Math.max(1.8, _d.coords.real.r * 0.22);
+                    var ringCol = "#6a1b9a";
+                    if (GexfJS.params.locusSpotlightActive) {
+                        if (!isNodeSpotlighted) ringCol = "#90a4ae";
+                        else if (spotNode.hasRef && !spotNode.hasEvent) ringCol = "#01579b";
+                    }
+                    GexfJS.ctxGraphe.strokeStyle = ringCol;
+                    GexfJS.ctxGraphe.beginPath();
+                    GexfJS.ctxGraphe.arc( _d.coords.real.x , _d.coords.real.y , _d.coords.real.r + 1.0 , 0 , Math.PI*2 , true );
+                    GexfJS.ctxGraphe.closePath();
+                    GexfJS.ctxGraphe.stroke();
+                    GexfJS.ctxGraphe.restore();
+                }
             }
         }
     }
@@ -1048,6 +1259,20 @@ function traceMap() {
         var _d = GexfJS.graph.nodeList[i];
         if (_d.visible && _d.withinFrame) {
             if (i != _centralNode) {
+                var isFocalLbl = Boolean(GexfJS.params.activeNodes && GexfJS.params.activeNodes[_d.id]);
+                var isAnchorLbl = Boolean(GexfJS.params.anchorNodes && GexfJS.params.anchorNodes[_d.id]);
+                var isActiveLbl = isFocalLbl || isAnchorLbl;
+                var spotNodeLbl = (GexfJS.params.locusSpotlightActive && GexfJS.params.locusNodeSpotlight) ? GexfJS.params.locusNodeSpotlight[_d.id] : null;
+                var isSpotLbl = Boolean(spotNodeLbl && (spotNodeLbl.hasEvent || spotNodeLbl.hasRef));
+                var shouldBeGreyLbl = GexfJS.params.locusSpotlightActive
+                    ? !isSpotLbl
+                    : ( isFadeMode && !_d.isTag && !isActiveLbl );
+
+                // Suppress background node labels when focused on a single locus to avoid clutter
+                if (GexfJS.params.focusLocusActive && !isActiveLbl) {
+                    continue;
+                }
+
                 var _fs = _d.coords.real.r * _textSizeFactor;
                 if (_d.isTag) {
                     if (_centralNode != -1) {
@@ -1058,19 +1283,39 @@ function traceMap() {
                     } else {
                         _fs = Math.max(GexfJS.params.textDisplayThreshold + 2, _fs);
                     }
+                } else if (GexfJS.params.focusLocusActive && isActiveLbl) {
+                    _fs = Math.max(GexfJS.params.textDisplayThreshold + 4, _fs);
                 }
+
                 if (_fs > GexfJS.params.textDisplayThreshold) {
-                    // --- NEW: Check if labels are globally enabled ---
                     if (GexfJS.params.showNodeLabels !== false) {
-                        GexfJS.ctxGraphe.fillStyle = ( ( i != GexfJS.params.activeNode ) && _tagsMisEnValeur.length && ( ( !_d.isTag ) || ( _centralNode != -1 ) ) ? "rgba(60,60,60,0.7)" : "rgb(0,0,0)" );
-                        
-                        // --- NEW: Apply the size multiplier ---
-                        var finalFs = _fs * (GexfJS.params.labelSizeFactor || 1.0);
-                        GexfJS.ctxGraphe.font = Math.floor( finalFs )+"px Arial";
-                        
+                        var finalFs = Math.max(9, Math.floor(_fs * (GexfJS.params.labelSizeFactor || 1.0)));
+                        GexfJS.ctxGraphe.font = ((isActiveLbl && !shouldBeGreyLbl) ? "bold " : "") + finalFs + "px Arial";
                         GexfJS.ctxGraphe.textAlign = "center";
                         GexfJS.ctxGraphe.textBaseline = "middle";
-                        GexfJS.ctxGraphe.fillText(_d.label, _d.coords.real.x, _d.coords.real.y);
+
+                        var lblText = _d.label;
+                        if (isSpotLbl && spotNodeLbl.featTag) {
+                            lblText = _d.label + " [" + spotNodeLbl.featTag + "]";
+                        }
+
+                        if (isActiveLbl && isFadeMode && !shouldBeGreyLbl) {
+                            GexfJS.ctxGraphe.fillStyle = "rgba(255,255,255,0.88)";
+                            GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x - 1, _d.coords.real.y);
+                            GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x + 1, _d.coords.real.y);
+                            GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x, _d.coords.real.y - 1);
+                            GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x, _d.coords.real.y + 1);
+                            if (GexfJS.params.locusSpotlightActive && spotNodeLbl) {
+                                GexfJS.ctxGraphe.fillStyle = (spotNodeLbl.hasRef && !spotNodeLbl.hasEvent) ? "#01579b" : "#38006b";
+                            } else {
+                                GexfJS.ctxGraphe.fillStyle = (isAnchorLbl && !isFocalLbl) ? "#1b5e20" : "#38006b";
+                            }
+                        } else if (shouldBeGreyLbl) {
+                            GexfJS.ctxGraphe.fillStyle = isActiveLbl ? "rgba(110,120,130,0.65)" : "rgba(130,130,130,0.32)";
+                        } else {
+                            GexfJS.ctxGraphe.fillStyle = ( ( i != GexfJS.params.activeNode ) && _tagsMisEnValeur.length && ( ( !_d.isTag ) || ( _centralNode != -1 ) ) ? "rgba(60,60,60,0.7)" : "rgb(0,0,0)" );
+                        }
+                        GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x, _d.coords.real.y);
                     }
                 }
             }
