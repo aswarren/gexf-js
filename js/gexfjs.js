@@ -1342,40 +1342,42 @@ function traceMap() {
         }
     }
     
-    for (var i in GexfJS.graph.nodeList) {
-        var _d = GexfJS.graph.nodeList[i];
-        if (_d.visible && _d.withinFrame) {
-            if (i != _centralNode) {
-                var isFocalLbl = Boolean(GexfJS.params.activeNodes && GexfJS.params.activeNodes[_d.id]);
-                var isAnchorLbl = Boolean(GexfJS.params.anchorNodes && GexfJS.params.anchorNodes[_d.id]);
-                var isActiveLbl = isFocalLbl || isAnchorLbl;
-                var spotNodeLbl = (GexfJS.params.locusSpotlightActive && GexfJS.params.locusNodeSpotlight) ? GexfJS.params.locusNodeSpotlight[_d.id] : null;
-                var isSpotLbl = Boolean(spotNodeLbl && (spotNodeLbl.hasEvent || spotNodeLbl.hasRef));
-                var shouldBeGreyLbl = GexfJS.params.locusSpotlightActive
-                    ? !isSpotLbl
-                    : ( isFadeMode && !_d.isTag && !isActiveLbl );
+    var _thresh = (typeof GexfJS.params.textDisplayThreshold === "number" && !isNaN(GexfJS.params.textDisplayThreshold))
+        ? GexfJS.params.textDisplayThreshold
+        : 12;
 
-                // Suppress background node labels when focused on a single locus to avoid clutter
-                if (GexfJS.params.focusLocusActive && !isActiveLbl) {
-                    continue;
-                }
+    if (GexfJS.params.showNodeLabels !== false) {
+        for (var i in GexfJS.graph.nodeList) {
+            var _d = GexfJS.graph.nodeList[i];
+            if (_d.visible && _d.withinFrame) {
+                if (i != _centralNode) {
+                    var isFocalLbl = Boolean(GexfJS.params.activeNodes && GexfJS.params.activeNodes[_d.id]);
+                    var isAnchorLbl = Boolean(GexfJS.params.anchorNodes && GexfJS.params.anchorNodes[_d.id]);
+                    var isActiveLbl = isFocalLbl || isAnchorLbl;
+                    var spotNodeLbl = (GexfJS.params.locusSpotlightActive && GexfJS.params.locusNodeSpotlight) ? GexfJS.params.locusNodeSpotlight[_d.id] : null;
+                    var isSpotLbl = Boolean(spotNodeLbl && (spotNodeLbl.hasEvent || spotNodeLbl.hasRef));
+                    var shouldBeGreyLbl = GexfJS.params.locusSpotlightActive
+                        ? !isSpotLbl
+                        : ( isFadeMode && !_d.isTag && !isActiveLbl );
 
-                var _fs = _d.coords.real.r * _textSizeFactor;
-                if (_d.isTag) {
-                    if (_centralNode != -1) {
-                        var _dist = Math.sqrt( Math.pow( _d.coords.real.x - _dnc.coords.real.x, 2 ) + Math.pow( _d.coords.real.y - _dnc.coords.real.y, 2 ) );
-                        if (_dist > 80) {
-                            _fs = Math.max(GexfJS.params.textDisplayThreshold + 2, _fs);
-                        }
-                    } else {
-                        _fs = Math.max(GexfJS.params.textDisplayThreshold + 2, _fs);
+                    // Suppress background node labels when focused on a single locus to avoid clutter
+                    if (GexfJS.params.focusLocusActive && !isActiveLbl) {
+                        continue;
                     }
-                } else if (GexfJS.params.focusLocusActive && isActiveLbl) {
-                    _fs = Math.max(GexfJS.params.textDisplayThreshold + 4, _fs);
-                }
 
-                if (_fs > GexfJS.params.textDisplayThreshold) {
-                    if (GexfJS.params.showNodeLabels !== false) {
+                    var _fs = _d.coords.real.r * _textSizeFactor;
+                    if (_d.isTag) {
+                        if (_centralNode != -1) {
+                            var _dist = Math.sqrt( Math.pow( _d.coords.real.x - _dnc.coords.real.x, 2 ) + Math.pow( _d.coords.real.y - _dnc.coords.real.y, 2 ) );
+                            if (_dist > 80) {
+                                _fs = Math.max(_thresh + 2, _fs);
+                            }
+                        } else {
+                            _fs = Math.max(_thresh + 2, _fs);
+                        }
+                    }
+
+                    if (_fs > _thresh) {
                         var finalFs = Math.max(9, Math.floor(_fs * (GexfJS.params.labelSizeFactor || 1.0)));
                         GexfJS.ctxGraphe.font = ((isActiveLbl && !shouldBeGreyLbl) ? "bold " : "") + finalFs + "px Arial";
                         GexfJS.ctxGraphe.textAlign = "center";
@@ -1420,7 +1422,7 @@ function traceMap() {
         
         // --- NEW: Check if labels are globally enabled before drawing text ---
         if (GexfJS.params.showNodeLabels !== false) {
-            var _fs = Math.max(GexfJS.params.textDisplayThreshold + 2, _dnc.coords.real.r * _textSizeFactor) + 2;
+            var _fs = Math.max(_thresh + 2, _dnc.coords.real.r * _textSizeFactor) + 2;
             
             // --- NEW: Apply the size multiplier ---
             var finalFs = _fs * (GexfJS.params.labelSizeFactor || 1.0);
