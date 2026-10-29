@@ -281,8 +281,12 @@ function displayPath(_eid, _path_str, _path_attr){
 }
 
 function displayNode(_nodeIndex, _recentre) {
+    if (typeof _nodeIndex === "string") {
+        var parsedIdx = parseInt(_nodeIndex, 10);
+        _nodeIndex = isNaN(parsedIdx) ? -1 : parsedIdx;
+    }
     GexfJS.params.currentNode = _nodeIndex;
-    if (_nodeIndex != -1) {
+    if (_nodeIndex != -1 && GexfJS.graph && GexfJS.graph.nodeList[_nodeIndex]) {
         var _d = GexfJS.graph.nodeList[_nodeIndex],
             _b = _d.coords.base,
             _str = '',
@@ -326,10 +330,12 @@ function displayNode(_nodeIndex, _recentre) {
         if (_recentre) {
             GexfJS.params.centreX = _b.x;
             GexfJS.params.centreY = _b.y;
+            if (GexfJS.oldParams) delete GexfJS.oldParams.zoomLevel;
         }
         $("#searchinput")
             .val(_d.label)
             .removeClass('grey');
+        $("#searchclear").css("display", _d.label ? "inline-flex" : "none");
     }
 }
 
@@ -729,7 +735,20 @@ function createGraph(data){
             });
             _d.genomes = {};
             _d.sequences = {};
+            _d.blocks = {};
+            _d.featureIds = [];
+            _d.featureIdsLower = [];
             _d.featureMap = null;
+            var blockAttrId = GexfJS._node_attr_value["block"] || GexfJS._node_attr_value["block_id"] || GexfJS._node_attr_value["block_name"];
+            var nodeBlockRaw = "";
+            if (typeof blockAttrId !== "undefined" && _d.attributes[blockAttrId]) {
+                nodeBlockRaw = String(_d.attributes[blockAttrId]).replace(/"/g, '');
+                var bParts = nodeBlockRaw.split(",");
+                for (var bIdx = 0; bIdx < bParts.length; bIdx++) {
+                    var bTrim = $.trim(bParts[bIdx]);
+                    if (bTrim) _d.blocks[bTrim] = true;
+                }
+            }
             var featAttrId = GexfJS._node_attr_value["features"];
             if (typeof featAttrId !== "undefined" && _d.attributes[featAttrId]) {
                 try {
@@ -743,11 +762,39 @@ function createGraph(data){
                         if (cMap && typeof cMap === "object") {
                             for (var sid in cMap) {
                                 _d.sequences[sid] = true;
+                                var fArr = cMap[sid];
+                                if ($.isArray(fArr)) {
+                                    for (var fIdx = 0; fIdx < fArr.length; fIdx++) {
+                                        var fClean = String(fArr[fIdx]).replace(/"/g, '');
+                                        if (fClean) {
+                                            _d.featureIds.push(fClean);
+                                            _d.featureIdsLower.push(fClean.toLowerCase());
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 } catch (e) {}
             }
+            var famAttrId = GexfJS._node_attr_value["family"] || GexfJS._node_attr_value["pgfam_id"] || GexfJS._node_attr_value["figfam_id"];
+            var funcAttrId = GexfJS._node_attr_value["function"] || GexfJS._node_attr_value["product"];
+            var famStr = (typeof famAttrId !== "undefined" && _d.attributes[famAttrId]) ? String(_d.attributes[famAttrId]).replace(/"/g, '') : "";
+            var funcStr = (typeof funcAttrId !== "undefined" && _d.attributes[funcAttrId]) ? String(_d.attributes[funcAttrId]).replace(/"/g, '') : "";
+            _d.searchMeta = {
+                label: String(_label || ""),
+                labelLower: String(_label || "").toLowerCase(),
+                id: String(_id || ""),
+                idLower: String(_id || "").toLowerCase(),
+                family: famStr,
+                familyLower: famStr.toLowerCase(),
+                func: funcStr,
+                funcLower: funcStr.toLowerCase(),
+                block: nodeBlockRaw,
+                blockLower: nodeBlockRaw.toLowerCase(),
+                genomeCount: Object.keys(_d.genomes).length,
+                featureCount: _d.featureIds.length
+            };
             GexfJS.graph.nodeIndexById.push(_id);
             GexfJS.graph.nodeIndexByLabel.push(_label.toLowerCase());
             GexfJS.graph.nodeList.push(_d);
@@ -763,6 +810,7 @@ function createGraph(data){
             var pathList=[];
             var _edgeGenomes = {};
             var _edgeSequences = {};
+            var _edgeBlocks = {};
             var _e = $(this),
                 _sid = _e.attr("source"),
                 _six = GexfJS.graph.nodeIndexById.indexOf(_sid);
@@ -780,13 +828,15 @@ function createGraph(data){
 
             $.each( GexfJS._edge_attr_value, function(k, cur_attr){
                 _pattr=_e.find('attvalue[for="'+cur_attr+'"]').attr('value');
-                _p = ( _pattr ? _pattr.split(/[ ,]+/) : _e.attr("path"));
+                var isBlockAttr = (k === "block" || k === "block_id" || k === "block_name");
+                _p = ( _pattr ? (isBlockAttr ? _pattr.split(",") : _pattr.split(/[ ,]+/)) : _e.attr("path"));
                 
                 var clean_p = []; // Create a new array for the cleaned path IDs
 
                 if (_p) { // Ensure _p is not null or undefined
                     $(_p).each(function(i, _path) {
-                        var clean_path = _path.replace(/"/g, '');
+                        var clean_path = $.trim(String(_path)).replace(/"/g, '');
+                        if (!clean_path) return;
                         clean_p.push(clean_path); // Add the cleaned ID to our new array
 
                         if (!(clean_path in GexfJS.path_highlights[cur_attr])){
@@ -797,6 +847,14 @@ function createGraph(data){
                             _edgeGenomes[clean_path] = true;
                         } else if (k === "sequences") {
                             _edgeSequences[clean_path] = true;
+                        } else if (isBlockAttr) {
+                            _edgeBlocks[clean_path] = true;
+                            if (GexfJS.graph.nodeList[_six] && GexfJS.graph.nodeList[_six].blocks) {
+                                GexfJS.graph.nodeList[_six].blocks[clean_path] = true;
+                            }
+                            if (GexfJS.graph.nodeList[_tix] && GexfJS.graph.nodeList[_tix].blocks) {
+                                GexfJS.graph.nodeList[_tix].blocks[clean_path] = true;
+                            }
                         }
                     });
                 }
@@ -824,15 +882,18 @@ function createGraph(data){
                         _b = Math.floor( .5 * _scol.b + .5 * _tcol.b );
                 }
             }
+            var _minEW = (typeof GexfJS.params.minEdgeWidth === "number" && !isNaN(GexfJS.params.minEdgeWidth)) ? GexfJS.params.minEdgeWidth : 1;
+            var _maxEW = (typeof GexfJS.params.maxEdgeWidth === "number" && !isNaN(GexfJS.params.maxEdgeWidth)) ? GexfJS.params.maxEdgeWidth : 1;
             GexfJS.graph.edgeList.push({
                 source : _six,
                 target : _tix,
-                width : Math.max( GexfJS.params.minEdgeWidth, Math.min( GexfJS.params.maxEdgeWidth, ( _w || 1 ) ) ) * _echelle,
+                width : Math.max( _minEW, Math.min( _maxEW, ( _w || 1 ) ) ) * _echelle,
                 weight : parseFloat(_w || 0),
                 color : "rgba(" + _r + "," + _g + "," + _b + ",.7)",
                 path : pathList,
                 genomes : _edgeGenomes,
                 sequences : _edgeSequences,
+                blocks : _edgeBlocks,
                 id : _eid
             });
             GexfJS.graph.edgeLookup[_eid]=GexfJS.graph.edgeList[GexfJS.graph.edgeList.length-1];
@@ -955,9 +1016,10 @@ function traceMap() {
     var _centralNode = ( ( GexfJS.params.activeNode != -1 ) ? GexfJS.params.activeNode : GexfJS.params.currentNode );
     var _hasGenomeFilter = GexfJS.params.activeGenomeFilter && !jQuery.isEmptyObject(GexfJS.params.activeGenomeFilter);
     var _hasContigFilter = GexfJS.params.activeContigFilter && !jQuery.isEmptyObject(GexfJS.params.activeContigFilter);
+    var _hasBlockFilter = GexfJS.params.activeBlockFilter && !jQuery.isEmptyObject(GexfJS.params.activeBlockFilter);
     var _isSubgraphLocusFilter = Boolean(GexfJS.params.focusLocusActive && GexfJS.params.locusFilterMode === 'subgraph');
     var _hasLocusFilter = Boolean(GexfJS.params.focusLocusActive && (_isSubgraphLocusFilter || (GexfJS.params.locusContigFilter && !jQuery.isEmptyObject(GexfJS.params.locusContigFilter))));
-    var _filterActive = Boolean(_hasGenomeFilter || _hasContigFilter || _hasLocusFilter);
+    var _filterActive = Boolean(_hasGenomeFilter || _hasContigFilter || _hasBlockFilter || _hasLocusFilter);
     
     for (var i in GexfJS.graph.nodeList) {
         var _d = GexfJS.graph.nodeList[i];
@@ -981,6 +1043,15 @@ function traceMap() {
                 }
             }
         }
+        var _passesBlock = true;
+        if (_hasBlockFilter) {
+            _passesBlock = false;
+            if (_d.blocks) {
+                for (var _fb in GexfJS.params.activeBlockFilter) {
+                    if (_d.blocks[_fb]) { _passesBlock = true; break; }
+                }
+            }
+        }
         var _passesLocus = true;
         if (_hasLocusFilter) {
             if ((GexfJS.params.activeNodes && GexfJS.params.activeNodes[_d.id]) ||
@@ -998,7 +1069,7 @@ function traceMap() {
                 }
             }
         }
-        var _passesFilter = _passesManual && _passesLocus;
+        var _passesFilter = _passesManual && _passesBlock && _passesLocus;
         _d.filteredOut = !_passesFilter;
         _d.visible = _passesFilter && ( GexfJS.params.currentNode == -1 || i == _centralNode || GexfJS.params.showEdges );
     }
@@ -1042,6 +1113,19 @@ function traceMap() {
                 }
                 if (!_edgePassesManual) continue;
             }
+            if (_hasBlockFilter) {
+                var _edgePassesBlock = false;
+                if (_d.blocks && !jQuery.isEmptyObject(_d.blocks)) {
+                    for (var _efb in GexfJS.params.activeBlockFilter) {
+                        if (_d.blocks[_efb]) { _edgePassesBlock = true; break; }
+                    }
+                } else {
+                    for (var _efb2 in GexfJS.params.activeBlockFilter) {
+                        if (_ds.blocks && _dt.blocks && _ds.blocks[_efb2] && _dt.blocks[_efb2]) { _edgePassesBlock = true; break; }
+                    }
+                }
+                if (!_edgePassesBlock) continue;
+            }
             if (_hasLocusFilter && !active_edge && !ref_edge && !_spotEdge) {
                 if (_isSubgraphLocusFilter) continue;
                 var _edgePassesLocus = false;
@@ -1074,7 +1158,7 @@ function traceMap() {
             var _coords = ( ( GexfJS.params.useLens && GexfJS.mousePosition ) ? calcCoord( GexfJS.mousePosition.x , GexfJS.mousePosition.y , _ds.coords.actual ) : _ds.coords.actual );
             _coordt = ( (GexfJS.params.useLens && GexfJS.mousePosition) ? calcCoord( GexfJS.mousePosition.x , GexfJS.mousePosition.y , _dt.coords.actual ) : _dt.coords.actual );
             var _color;
-            var _lineW = _edgeSizeFactor * _d.width;
+            var _lineW = 1.0;
             var _isDashed = Boolean(GexfJS.params.dashedEdges && GexfJS.params.dashedEdges[_eid]);
 
             if (GexfJS.params.locusSpotlightActive) {
@@ -1083,31 +1167,29 @@ function traceMap() {
                     _deferredActiveEdges.push({
                         coords: _coords,
                         coordt: _coordt,
-                        lineWidth: _isInLocEdge ? Math.max(2.8, _lineW * 1.4) : Math.max(2.0, _lineW * 1.05),
+                        lineWidth: _isInLocEdge ? 2.8 : 2.0,
                         dashed: _isInLocEdge ? _isDashed : false,
                         spotEdge: _spotEdge
                     });
                 } else {
-                    // Non-spotlighted edges go to soft neutral grey
-                    GexfJS.ctxGraphe.lineWidth = (active_edge || ref_edge) ? Math.max(1.6, _lineW) : _lineW;
-                    GexfJS.ctxGraphe.strokeStyle = (active_edge || ref_edge) ? "rgba(155,168,180,0.42)" : "rgba(180,190,200,0.18)";
+                    // Non-spotlighted edges go to soft neutral grey at crisp 1px width
+                    GexfJS.ctxGraphe.lineWidth = (active_edge || ref_edge) ? 1.6 : 1.0;
+                    GexfJS.ctxGraphe.strokeStyle = (active_edge || ref_edge) ? "rgba(155,168,180,0.42)" : "rgba(180,190,200,0.22)";
                     traceArc(GexfJS.ctxGraphe, _coords, _coordt);
                 }
             } else {
                 if (ref_edge && !active_edge) {
                     _color = "#0288d1";
-                    _lineW = Math.max(2.2, _lineW * 1.2);
+                    _lineW = 2.2;
                 }
                 else if (GexfJS.params.pinnedElements && GexfJS.params.pinnedElements['e_' + _d.id]) {
                     // 1. Pinned Colors always win
                     _color = GexfJS.params.pinnedElements['e_' + _d.id];
-                    if (active_edge) {
-                        _lineW = Math.max(2.6, _lineW * 1.35);
-                    }
+                    _lineW = active_edge ? 2.8 : 1.8;
                 }
                 else if (GexfJS.params.path_active && active_edge) {
                     // 2. It's a highlighted edge! Make it visible with a minimum readable stroke width.
-                    _lineW = Math.max(2.6, _lineW * 1.35);
+                    _lineW = 2.8;
                     if (GexfJS.params.highlightColorOverride) {
                         _color = GexfJS.params.highlightColorOverride; // User override
                     } else {
@@ -1117,7 +1199,9 @@ function traceMap() {
                 else {
                     // 3. Not highlighted (either neighbor hover or faded background)
                     var baseEdgeColor = GexfJS.params.muteDefaultColors ? "rgba(180,180,180,0.5)" : _d.color;
-                    _color = ( (_isLinked && !GexfJS.params.path_active) ? baseEdgeColor : "rgba(100,100,100,0.18)" );
+                    var isNeighborHover = Boolean(_isLinked && !GexfJS.params.path_active);
+                    _color = isNeighborHover ? baseEdgeColor : "rgba(110,118,129,0.22)";
+                    _lineW = isNeighborHover ? 1.6 : 1.0;
                 }
 
                 if (active_edge || ref_edge) {
@@ -1474,10 +1558,150 @@ function traceMap() {
     GexfJS.ctxMini.strokeRect( _x, _y, _w, _h );
 }
 
+function escapeSearchHtml(str) {
+    return String(str == null ? "" : str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+function escapeRegExpToken(str) {
+    return String(str).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function highlightSearchText(text, tokens) {
+    var raw = String(text == null ? "" : text);
+    if (!raw || !tokens || !tokens.length) return escapeSearchHtml(raw);
+    var validTokens = [];
+    for (var i = 0; i < tokens.length; i++) {
+        if (tokens[i]) validTokens.push(escapeRegExpToken(tokens[i]));
+    }
+    if (!validTokens.length) return escapeSearchHtml(raw);
+    validTokens.sort(function(a, b) { return b.length - a.length; });
+    var pattern = new RegExp("(" + validTokens.join("|") + ")", "ig");
+    var parts = raw.split(pattern);
+    var out = "";
+    for (var j = 0; j < parts.length; j++) {
+        var part = parts[j];
+        if (!part) continue;
+        if (j % 2 === 1) {
+            out += '<b class="ac-match">' + escapeSearchHtml(part) + '</b>';
+        } else {
+            out += escapeSearchHtml(part);
+        }
+    }
+    return out;
+}
+
+function searchGraphNodes(rawQuery) {
+    if (!GexfJS.graph || !GexfJS.graph.nodeList) return [];
+    var q = $.trim(String(rawQuery || "")).toLowerCase();
+    if (!q) return [];
+    var tokens = q.split(/\s+/);
+    var validTokens = [];
+    for (var t = 0; t < tokens.length; t++) {
+        if (tokens[t]) validTokens.push(tokens[t]);
+    }
+    if (!validTokens.length) return [];
+
+    var results = [];
+    var nodeList = GexfJS.graph.nodeList;
+    for (var i = 0; i < nodeList.length; i++) {
+        var _d = nodeList[i];
+        if (!_d) continue;
+        var meta = _d.searchMeta || {
+            label: String(_d.label || ""),
+            labelLower: String(_d.label || "").toLowerCase(),
+            id: String(_d.id || ""),
+            idLower: String(_d.id || "").toLowerCase(),
+            family: "",
+            familyLower: "",
+            func: "",
+            funcLower: "",
+            block: "",
+            blockLower: "",
+            genomeCount: _d.genomes ? Object.keys(_d.genomes).length : 0,
+            featureCount: _d.featureIds ? _d.featureIds.length : 0
+        };
+
+        var allTokensMatch = true;
+        var matchedFeat = "";
+        for (var tk = 0; tk < validTokens.length; tk++) {
+            var tok = validTokens[tk];
+            var inMain = (meta.labelLower.indexOf(tok) !== -1) ||
+                         (meta.idLower.indexOf(tok) !== -1) ||
+                         (meta.familyLower && meta.familyLower.indexOf(tok) !== -1) ||
+                         (meta.funcLower && meta.funcLower.indexOf(tok) !== -1) ||
+                         (meta.blockLower && meta.blockLower.indexOf(tok) !== -1);
+            var inFeat = false;
+            if (!inMain && _d.featureIdsLower && _d.featureIdsLower.length) {
+                for (var fi = 0; fi < _d.featureIdsLower.length; fi++) {
+                    if (_d.featureIdsLower[fi].indexOf(tok) !== -1) {
+                        inFeat = true;
+                        if (!matchedFeat) matchedFeat = _d.featureIds[fi];
+                        break;
+                    }
+                }
+            }
+            if (!inMain && !inFeat) {
+                allTokensMatch = false;
+                break;
+            }
+        }
+        if (!allTokensMatch) continue;
+
+        var score = 0;
+        if (meta.labelLower === q || meta.idLower === q || (meta.familyLower && meta.familyLower === q)) {
+            score += 1000;
+        } else if (meta.labelLower.indexOf(q) === 0 || meta.idLower.indexOf(q) === 0 || (meta.familyLower && meta.familyLower.indexOf(q) === 0)) {
+            score += 600;
+        } else if (meta.labelLower.indexOf(q) !== -1) {
+            score += 350;
+        } else if (meta.idLower.indexOf(q) !== -1 || (meta.familyLower && meta.familyLower.indexOf(q) !== -1)) {
+            score += 250;
+        } else if (matchedFeat) {
+            score += 180;
+        } else {
+            score += 120;
+        }
+
+        if (!_d.filteredOut) score += 50;
+        score += Math.min(40, meta.genomeCount || 0);
+
+        results.push({
+            nodeIndex: i,
+            node: _d,
+            meta: meta,
+            matchedFeature: matchedFeat,
+            score: score
+        });
+    }
+
+    results.sort(function(a, b) {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.nodeIndex - b.nodeIndex;
+    });
+    return results;
+}
+
 function hoverAC() {
-    $("#autocomplete li").removeClass("hover");
-    $("#liac_"+GexfJS.autoCompletePosition).addClass("hover");
-    GexfJS.params.activeNode = GexfJS.graph.nodeIndexByLabel.indexOf( $("#liac_"+GexfJS.autoCompletePosition).text().toLowerCase() );
+    var _items = $("#autocomplete li.ac-item");
+    _items.removeClass("hover");
+    var _cur = $("#liac_" + GexfJS.autoCompletePosition);
+    if (_cur.length) {
+        _cur.addClass("hover");
+        var nIdx = parseInt(_cur.attr("data-node-index"), 10);
+        if (!isNaN(nIdx)) {
+            GexfJS.params.activeNode = nIdx;
+            if (GexfJS.oldParams) delete GexfJS.oldParams.zoomLevel;
+        }
+        var el = _cur[0];
+        if (el && el.scrollIntoView) {
+            try { el.scrollIntoView({ block: "nearest" }); } catch (e) {}
+        }
+    }
 }
 
 function changePosAC(_n) {
@@ -1485,25 +1709,150 @@ function changePosAC(_n) {
     hoverAC();
 }
 
+function selectSearchResult(_nodeIndex) {
+    var idx = parseInt(_nodeIndex, 10);
+    if (isNaN(idx) || !GexfJS.graph || !GexfJS.graph.nodeList[idx]) return false;
+    var _d = GexfJS.graph.nodeList[idx];
+    $("#autocomplete").hide();
+    $("#searchinput").val(_d.label || _d.id).removeClass("grey");
+    $("#searchclear").css("display", "inline-flex");
+    GexfJS.dernierAC = String(_d.label || _d.id).toLowerCase();
+    displayNode(idx, true);
+    return false;
+}
+
+function selectAllSearchMatches() {
+    var matches = GexfJS.lastSearchMatches || [];
+    if (!matches.length || !GexfJS.graph) return false;
+    var indices = [];
+    var sumX = 0, sumY = 0, countCoords = 0;
+    for (var i = 0; i < matches.length; i++) {
+        var idx = matches[i].nodeIndex;
+        indices.push(idx);
+        var n = GexfJS.graph.nodeList[idx];
+        if (n && n.coords && n.coords.base) {
+            sumX += n.coords.base.x;
+            sumY += n.coords.base.y;
+            countCoords++;
+        }
+    }
+    $("#autocomplete").hide();
+    if (countCoords > 0) {
+        GexfJS.params.centreX = sumX / countCoords;
+        GexfJS.params.centreY = sumY / countCoords;
+        if (GexfJS.oldParams) delete GexfJS.oldParams.zoomLevel;
+    }
+    if (indices.length === 1) {
+        displayNode(indices[0], true);
+    } else if (window.onBoxSelectNodes) {
+        window.onBoxSelectNodes(indices, false);
+    } else {
+        displayNode(indices[0], true);
+    }
+    return false;
+}
+
+function clearGraphSearch(_resetSelection) {
+    $("#searchinput").val("").removeClass("grey");
+    $("#searchclear").hide();
+    $("#autocomplete").hide().empty();
+    GexfJS.dernierAC = "";
+    GexfJS.lastSearchMatches = [];
+    GexfJS.params.activeNode = -1;
+    if (_resetSelection) {
+        displayNode(-1);
+    } else if (GexfJS.oldParams) {
+        delete GexfJS.oldParams.zoomLevel;
+    }
+    $("#searchinput").focus();
+    return false;
+}
+
 function updateAutoComplete(_sender) {
-    var _val = $(_sender).val().toLowerCase();
+    var rawVal = String($(_sender).val() || "");
+    var _val = $.trim(rawVal).toLowerCase();
     var _ac = $("#autocomplete");
+    $("#searchclear").css("display", rawVal.length > 0 ? "inline-flex" : "none");
+
+    if (!_val) {
+        GexfJS.dernierAC = "";
+        GexfJS.lastSearchMatches = [];
+        _ac.hide().empty();
+        return;
+    }
+
     if (_val != GexfJS.dernierAC || _ac.html() == "") {
         GexfJS.dernierAC = _val;
-        var _strAC = "<div><h4>" + strLang("nodes") + "</h4><ul>";
-        var _n = 0;
-        for (var i in GexfJS.graph.nodeIndexByLabel) {
-            var _l = GexfJS.graph.nodeIndexByLabel[i];
-            if (_l.search(_val) != -1) {
-                _strAC += '<li id="liac_' + _n + '" onmouseover="changePosAC(' + _n + ')"><a href="#" onclick="displayNode(\'' + i + '\', true); return false;"><span>' + GexfJS.graph.nodeList[i].label + '</span></a>';
-                _n++;
-            }
-            if (_n >= 20) {
-                break;
-            }
+        var tokens = _val.split(/\s+/);
+        var matches = searchGraphNodes(_val);
+        GexfJS.lastSearchMatches = matches;
+
+        if (matches.length === 0) {
+            _ac.html(
+                '<div class="ac-container">' +
+                '<div class="ac-empty">No matching nodes found for <b>&ldquo;' + escapeSearchHtml(rawVal) + '&rdquo;</b></div>' +
+                '</div>'
+            );
+            _ac.show();
+            return;
         }
+
+        var maxItems = 25;
+        var shownCount = Math.min(matches.length, maxItems);
+        var countText = matches.length > maxItems
+            ? ('Showing top <b>' + shownCount + '</b> of <b>' + matches.length + '</b> matches')
+            : ('Found <b>' + matches.length + '</b> matching ' + (matches.length === 1 ? 'node' : 'nodes'));
+
+        var _strAC = '<div class="ac-container">';
+        _strAC += '<div class="ac-header">';
+        _strAC += '<span class="ac-count">' + countText + '</span>';
+        if (matches.length > 1) {
+            _strAC += '<a href="#" class="ac-select-all" onclick="return selectAllSearchMatches();" title="Select and highlight all ' + matches.length + ' matching nodes on the graph (or press Shift+Enter)">Select All (' + matches.length + ')</a>';
+        }
+        _strAC += '</div>';
+        _strAC += '<ul class="ac-list">';
+
+        for (var k = 0; k < shownCount; k++) {
+            var m = matches[k];
+            var idx = m.nodeIndex;
+            var _d = m.node;
+            var meta = m.meta;
+            var titleHtml = highlightSearchText(_d.label || _d.id, tokens);
+
+            var subBadges = [];
+            if (meta.id && meta.id !== meta.label) {
+                subBadges.push('<span class="ac-badge ac-badge-id">ID: ' + highlightSearchText(meta.id, tokens) + '</span>');
+            }
+            if (meta.family && meta.family !== meta.label && meta.family !== meta.id) {
+                subBadges.push('<span class="ac-badge ac-badge-fam">' + highlightSearchText(meta.family, tokens) + '</span>');
+            }
+            if (meta.block) {
+                subBadges.push('<span class="ac-badge ac-badge-block">' + highlightSearchText(meta.block, tokens) + '</span>');
+            }
+            if (meta.genomeCount > 0) {
+                subBadges.push('<span class="ac-badge ac-badge-gen">' + meta.genomeCount + ' gen</span>');
+            }
+            if (m.matchedFeature) {
+                subBadges.push('<span class="ac-badge ac-badge-feat">Feature: ' + highlightSearchText(m.matchedFeature, tokens) + '</span>');
+            }
+            if (_d.filteredOut) {
+                subBadges.push('<span class="ac-badge ac-badge-filtered">Filtered</span>');
+            }
+
+            _strAC += '<li id="liac_' + k + '" class="ac-item" data-node-index="' + idx + '" onmouseover="changePosAC(' + k + ')">';
+            _strAC += '<a href="#" onclick="return selectSearchResult(' + idx + ');">';
+            _strAC += '<div class="ac-row-top">';
+            _strAC += '<span class="ac-color-dot" style="background:' + (_d.color && _d.color.base ? _d.color.base : '#888') + ';"></span>';
+            _strAC += '<span class="ac-title">' + titleHtml + '</span>';
+            _strAC += '</div>';
+            if (subBadges.length > 0) {
+                _strAC += '<div class="ac-row-sub">' + subBadges.join(' ') + '</div>';
+            }
+            _strAC += '</a></li>';
+        }
+        _strAC += '</ul></div>';
         GexfJS.autoCompletePosition = 0;
-        _ac.html(_strAC + "</ul></div>");
+        _ac.html(_strAC);
     }
     hoverAC();
     _ac.show();
@@ -1557,56 +1906,98 @@ function startGraphViewer(data){
     window.onhashchange = initializeMap;
     
     $("#searchinput")
+        .off("focus keyup keydown input")
         .focus(function() {
             if ( $(this).is('.grey') ) {
                 $(this).val('').removeClass('grey');
             }
+            if ($.trim($(this).val()) !== "") {
+                updateAutoComplete(this);
+            }
         })
-        .keyup(function(evt) {
+        .on("input", function() {
             updateAutoComplete(this);
-        }).keydown(function(evt){
-            var _l = $("#autocomplete li").length;
+        })
+        .keydown(function(evt){
+            var _l = $("#autocomplete li.ac-item").length;
             switch (evt.keyCode) {
                 case 40 :
-                    if (GexfJS.autoCompletePosition < _l - 1) {
-                        GexfJS.autoCompletePosition++;
-                    } else {
-                        GexfJS.autoCompletePosition = 0;
+                    if (_l > 0) {
+                        if (GexfJS.autoCompletePosition < _l - 1) {
+                            GexfJS.autoCompletePosition++;
+                        } else {
+                            GexfJS.autoCompletePosition = 0;
+                        }
+                        hoverAC();
                     }
-                break;
+                    return false;
                 case 38 :
-                    if (GexfJS.autoCompletePosition > 0) {
-                        GexfJS.autoCompletePosition--;
-                    } else {
-                        GexfJS.autoCompletePosition = _l - 1;
+                    if (_l > 0) {
+                        if (GexfJS.autoCompletePosition > 0) {
+                            GexfJS.autoCompletePosition--;
+                        } else {
+                            GexfJS.autoCompletePosition = _l - 1;
+                        }
+                        hoverAC();
                     }
-                break;
+                    return false;
                 case 27 :
-                    $("#autocomplete").slideUp();
-                break;
+                    $("#autocomplete").hide();
+                    return false;
                 case 13 :
+                    evt.preventDefault();
+                    if (evt.shiftKey && GexfJS.lastSearchMatches && GexfJS.lastSearchMatches.length > 1) {
+                        selectAllSearchMatches();
+                        return false;
+                    }
                     if ($("#autocomplete").is(":visible")) {
-                        var _liac = $("#liac_"+GexfJS.autoCompletePosition);
+                        var _liac = $("#liac_" + GexfJS.autoCompletePosition);
                         if (_liac.length) {
-                            $(this).val(_liac.find("span").text());
+                            var selIdx = parseInt(_liac.attr("data-node-index"), 10);
+                            if (!isNaN(selIdx)) {
+                                selectSearchResult(selIdx);
+                                return false;
+                            }
                         }
                     }
-                break;
-                default :
-                    GexfJS.autoCompletePosition = 0;
-                break;
-            }
-            updateAutoComplete(this);
-            if (evt.keyCode == 38 || evt.keyCode == 40) {
-                return false;
+                    $("#recherche").submit();
+                    return false;
             }
         });
-    $("#recherche").submit(function() {
-        if (GexfJS.graph) {
-            displayNode( GexfJS.graph.nodeIndexByLabel.indexOf($("#searchinput").val().toLowerCase()), true);
-        }
-        return false;
-    });
+    $("#searchclear")
+        .off("click")
+        .click(function(evt) {
+            evt.preventDefault();
+            evt.stopPropagation();
+            clearGraphSearch(false);
+            return false;
+        });
+    $("#recherche")
+        .off("submit")
+        .submit(function(evt) {
+            if (evt && evt.preventDefault) evt.preventDefault();
+            if (GexfJS.graph) {
+                var qVal = $.trim($("#searchinput").val() || "");
+                if (!qVal) return false;
+                var matches = (GexfJS.lastSearchMatches && GexfJS.dernierAC === qVal.toLowerCase())
+                    ? GexfJS.lastSearchMatches
+                    : searchGraphNodes(qVal);
+                if (matches && matches.length > 0) {
+                    var pos = (GexfJS.autoCompletePosition >= 0 && GexfJS.autoCompletePosition < matches.length)
+                        ? GexfJS.autoCompletePosition
+                        : 0;
+                    selectSearchResult(matches[pos].nodeIndex);
+                }
+            }
+            return false;
+        });
+    $(document)
+        .off("mousedown.gexfSearchClose")
+        .on("mousedown.gexfSearchClose", function(evt) {
+            if (!$(evt.target).closest("#recherche, #autocomplete").length) {
+                $("#autocomplete").hide();
+            }
+        });
     $("#carte")
         .mousemove(onGraphMove)
         .click(onGraphClick)
