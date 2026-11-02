@@ -1348,7 +1348,56 @@ function traceMap() {
     
     var hasActiveNodes = (GexfJS.params.activeNodes && !jQuery.isEmptyObject(GexfJS.params.activeNodes)) ||
                          (GexfJS.params.anchorNodes && !jQuery.isEmptyObject(GexfJS.params.anchorNodes));
-    var isFadeMode = (_tagsMisEnValeur.length > 0 || hasActiveNodes);
+    var hasSpecialtyMarkers = Boolean(GexfJS.params.specialtyNodeMarkers && !jQuery.isEmptyObject(GexfJS.params.specialtyNodeMarkers));
+    var specFadeOnly = Boolean(hasSpecialtyMarkers && GexfJS.params.specialtyFadeActive !== false && !hasActiveNodes && !GexfJS.params.locusSpotlightActive);
+    var isFadeMode = (_tagsMisEnValeur.length > 0 || hasActiveNodes || specFadeOnly);
+
+    var drawSpecialtyMarker = function(ctx, x, y, r, specObj, hasInnerRing) {
+        if (!specObj || !specObj.colors || !specObj.colors.length) return;
+        var cols = specObj.colors;
+        var ringR = r + (hasInnerRing ? 3.6 : 2.1);
+        var ringW = Math.max(1.8, r * 0.22);
+
+        ctx.save();
+        ctx.lineWidth = ringW;
+        if (cols.length === 1) {
+            ctx.strokeStyle = cols[0];
+            if (ctx.setLineDash) {
+                ctx.setLineDash([4, 2.5]);
+            }
+            ctx.beginPath();
+            ctx.arc(x, y, ringR, 0, Math.PI * 2, true);
+            ctx.closePath();
+            ctx.stroke();
+            if (ctx.setLineDash) {
+                ctx.setLineDash([]);
+            }
+        } else {
+            var segAngle = (Math.PI * 2) / cols.length;
+            for (var ci = 0; ci < cols.length; ci++) {
+                ctx.strokeStyle = cols[ci];
+                ctx.beginPath();
+                ctx.arc(x, y, ringR, ci * segAngle, (ci + 1) * segAngle - 0.08, false);
+                ctx.stroke();
+            }
+        }
+
+        // Top-right rotated diamond pip badge at -45 deg on the outer perimeter
+        var pipAngle = -Math.PI / 4;
+        var px = x + Math.cos(pipAngle) * ringR;
+        var py = y + Math.sin(pipAngle) * ringR;
+        var dSize = Math.max(3.2, Math.min(6.5, r * 0.42));
+        ctx.translate(px, py);
+        ctx.rotate(Math.PI / 4);
+        ctx.fillStyle = specObj.primaryColor || cols[0];
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.rect(-dSize * 0.5, -dSize * 0.5, dSize, dSize);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+    };
 
     for (var i in GexfJS.graph.nodeList) {
         var _d = GexfJS.graph.nodeList[i];
@@ -1359,18 +1408,22 @@ function traceMap() {
                 // 1. Is this node connected to an active edge?
                 _d.isTag = ( _tagsMisEnValeur.indexOf(parseInt(i)) != -1 );
 
-                // 2. Is this node a focal active node or a flanking conserved anchor node?
+                // 2. Is this node a focal active node, a flanking conserved anchor node, or a marked specialty gene node?
                 var isFocalNode = Boolean(GexfJS.params.activeNodes && GexfJS.params.activeNodes[_d.id]);
                 var isAnchorNode = Boolean(GexfJS.params.anchorNodes && GexfJS.params.anchorNodes[_d.id]);
                 var isNodeActive = isFocalNode || isAnchorNode;
                 var spotNode = (GexfJS.params.locusSpotlightActive && GexfJS.params.locusNodeSpotlight) ? GexfJS.params.locusNodeSpotlight[_d.id] : null;
                 var isNodeSpotlighted = Boolean(spotNode && (spotNode.hasEvent || spotNode.hasRef));
                 var isSpotInLocus = Boolean(spotNode && spotNode.inLocus !== false);
+                var specMarker = (hasSpecialtyMarkers && GexfJS.params.specialtyNodeMarkers) ? GexfJS.params.specialtyNodeMarkers[_d.id] : null;
+                var isSpecMarked = Boolean(specMarker && specMarker.colors && specMarker.colors.length > 0);
 
                 // 3. Should it be grey? 
                 var shouldBeGrey = GexfJS.params.locusSpotlightActive
-                    ? !isNodeSpotlighted
-                    : ( isFadeMode && !_d.isTag && !isNodeActive );
+                    ? (!isNodeSpotlighted && !isSpecMarked)
+                    : (specFadeOnly
+                        ? (!_d.isTag && !isSpecMarked)
+                        : (isFadeMode && !_d.isTag && !isNodeActive && !isSpecMarked));
 
                 // 4. Set the Color
                 var _color;
@@ -1386,9 +1439,9 @@ function traceMap() {
                             // Shared by both spotlighted Event and Reference contigs: fill Blue, draw Highlight half-disc below
                             _color = isSpotInLocus ? "#0288d1" : "#64b5f6";
                         }
-                    } else if (isNodeActive) {
-                        // Unvisited locus node: visible muted slate grey
-                        _color = "#cfd8dc";
+                    } else if (isNodeActive || isSpecMarked) {
+                        // Unvisited locus node or specialty-marked node: visible muted slate grey (or base color if specialty-marked)
+                        _color = isSpecMarked ? (GexfJS.params.muteDefaultColors ? "#cfd8dc" : _d.color.base) : "#cfd8dc";
                     } else {
                         _color = "rgba(195,203,210,0.25)";
                     }
@@ -1404,9 +1457,11 @@ function traceMap() {
                         : GexfJS.params.pinnedElements['n_' + _d.id];
                 }
                 else if (isFadeMode && !shouldBeGrey) {
-                    // 2. Node is actively highlighted (e.g. focal phenomenon node)
-                    if (GexfJS.params.highlightColorOverride) {
+                    // 2. Node is actively highlighted (e.g. focal phenomenon node or specialty-marked node)
+                    if (isFocalNode && GexfJS.params.highlightColorOverride) {
                         _color = GexfJS.params.highlightColorOverride;
+                    } else if (isSpecMarked && !isNodeActive && GexfJS.params.muteDefaultColors) {
+                        _color = specMarker.primaryColor || "#d32f2f";
                     } else {
                         _color = GexfJS.params.muteDefaultColors ? "#d500f9" : _d.color.base;
                     }
@@ -1436,7 +1491,9 @@ function traceMap() {
                 }
 
                 // 5. Draw role halo ring for focal vs. flanking anchor nodes (or subtle continuation ring outside locus)
+                var hasInnerRoleRing = false;
                 if (isAnchorNode && !isFocalNode) {
+                    hasInnerRoleRing = true;
                     GexfJS.ctxGraphe.save();
                     GexfJS.ctxGraphe.lineWidth = Math.max(2.4, _d.coords.real.r * 0.30);
                     GexfJS.ctxGraphe.strokeStyle = (GexfJS.params.locusSpotlightActive && !isNodeSpotlighted) ? "#90a4ae" : "#2e7d32";
@@ -1446,6 +1503,7 @@ function traceMap() {
                     GexfJS.ctxGraphe.stroke();
                     GexfJS.ctxGraphe.restore();
                 } else if (isFocalNode) {
+                    hasInnerRoleRing = true;
                     GexfJS.ctxGraphe.save();
                     GexfJS.ctxGraphe.lineWidth = Math.max(1.8, _d.coords.real.r * 0.22);
                     var ringCol = GexfJS.params.highlightColorOverride || "#6a1b9a";
@@ -1460,6 +1518,7 @@ function traceMap() {
                     GexfJS.ctxGraphe.stroke();
                     GexfJS.ctxGraphe.restore();
                 } else if (GexfJS.params.locusSpotlightActive && isNodeSpotlighted && !isSpotInLocus) {
+                    hasInnerRoleRing = true;
                     GexfJS.ctxGraphe.save();
                     GexfJS.ctxGraphe.lineWidth = Math.max(1.2, _d.coords.real.r * 0.16);
                     GexfJS.ctxGraphe.strokeStyle = (spotNode.hasRef && !spotNode.hasEvent) ? "rgba(2, 119, 189, 0.65)" : "rgba(142, 36, 170, 0.65)";
@@ -1468,6 +1527,11 @@ function traceMap() {
                     GexfJS.ctxGraphe.closePath();
                     GexfJS.ctxGraphe.stroke();
                     GexfJS.ctxGraphe.restore();
+                }
+
+                // 6. Draw orthogonal Specialty Gene outer marker ring & diamond pip badge
+                if (isSpecMarked) {
+                    drawSpecialtyMarker(GexfJS.ctxGraphe, _d.coords.real.x, _d.coords.real.y, _d.coords.real.r, specMarker, hasInnerRoleRing);
                 }
             }
         }
@@ -1491,6 +1555,10 @@ function traceMap() {
         GexfJS.ctxGraphe.closePath();
         GexfJS.ctxGraphe.fill();
         GexfJS.ctxGraphe.stroke();
+        var centralSpec = (hasSpecialtyMarkers && GexfJS.params.specialtyNodeMarkers) ? GexfJS.params.specialtyNodeMarkers[_dnc.id] : null;
+        if (centralSpec && centralSpec.colors && centralSpec.colors.length > 0) {
+            drawSpecialtyMarker(GexfJS.ctxGraphe, _dnc.coords.real.x, _dnc.coords.real.y, _dnc.coords.real.r, centralSpec, true);
+        }
     }
 
     if (GexfJS.params.showNodeLabels !== false) {
@@ -1504,12 +1572,16 @@ function traceMap() {
                         var isActiveLbl = isFocalLbl || isAnchorLbl;
                         var spotNodeLbl = (GexfJS.params.locusSpotlightActive && GexfJS.params.locusNodeSpotlight) ? GexfJS.params.locusNodeSpotlight[_d.id] : null;
                         var isSpotLbl = Boolean(spotNodeLbl && (spotNodeLbl.hasEvent || spotNodeLbl.hasRef));
+                        var specLblObj = (hasSpecialtyMarkers && GexfJS.params.specialtyNodeMarkers) ? GexfJS.params.specialtyNodeMarkers[_d.id] : null;
+                        var isSpecLbl = Boolean(specLblObj && specLblObj.colors && specLblObj.colors.length > 0);
                         var shouldBeGreyLbl = GexfJS.params.locusSpotlightActive
-                            ? !isSpotLbl
-                            : ( isFadeMode && !_d.isTag && !isActiveLbl );
+                            ? (!isSpotLbl && !isSpecLbl)
+                            : (specFadeOnly
+                                ? (!_d.isTag && !isSpecLbl)
+                                : (isFadeMode && !_d.isTag && !isActiveLbl && !isSpecLbl));
 
                         // Suppress background node labels when focused on a single locus to avoid clutter
-                        if (GexfJS.params.focusLocusActive && !isActiveLbl) {
+                        if (GexfJS.params.focusLocusActive && !isActiveLbl && !isSpecLbl) {
                             continue;
                         }
 
@@ -1527,16 +1599,19 @@ function traceMap() {
 
                         if (_fs > _thresh) {
                             var finalFs = Math.max(9, Math.floor(_fs * (GexfJS.params.labelSizeFactor || 1.0)));
-                            GexfJS.ctxGraphe.font = ((isActiveLbl && !shouldBeGreyLbl) ? "bold " : "") + finalFs + "px Arial";
+                            GexfJS.ctxGraphe.font = (((isActiveLbl || isSpecLbl) && !shouldBeGreyLbl) ? "bold " : "") + finalFs + "px Arial";
                             GexfJS.ctxGraphe.textAlign = "center";
                             GexfJS.ctxGraphe.textBaseline = "middle";
 
                             var lblText = _d.label;
                             if (isSpotLbl && spotNodeLbl.featTag) {
-                                lblText = _d.label + " [" + spotNodeLbl.featTag + "]";
+                                lblText = lblText + " [" + spotNodeLbl.featTag + "]";
+                            }
+                            if (isSpecLbl && specLblObj.labelTag) {
+                                lblText = lblText + " [" + specLblObj.labelTag + "]";
                             }
 
-                            if (isActiveLbl && isFadeMode && !shouldBeGreyLbl) {
+                            if ((isActiveLbl || isSpecLbl) && isFadeMode && !shouldBeGreyLbl) {
                                 GexfJS.ctxGraphe.fillStyle = _lblHaloCol;
                                 GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x - 1, _d.coords.real.y);
                                 GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x + 1, _d.coords.real.y);
@@ -1544,6 +1619,8 @@ function traceMap() {
                                 GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x, _d.coords.real.y + 1);
                                 if (_lblOverride) {
                                     GexfJS.ctxGraphe.fillStyle = _lblOverride;
+                                } else if (isSpecLbl && !isActiveLbl) {
+                                    GexfJS.ctxGraphe.fillStyle = specLblObj.primaryColor || "#b71c1c";
                                 } else if (GexfJS.params.locusSpotlightActive && spotNodeLbl) {
                                     GexfJS.ctxGraphe.fillStyle = (spotNodeLbl.hasRef && !spotNodeLbl.hasEvent) ? "#01579b" : (GexfJS.params.highlightColorOverride || "#38006b");
                                 } else {
@@ -1575,6 +1652,7 @@ function traceMap() {
             }
         } else {
             // Non-overlapping label layouts: "stagger" (Vertical Stagger), "vertical" (-90 deg), or "angled" (-45 deg)
+            // Layout positions are computed independent of hover state (_centralNode / nd.isTag) so labels stay stationary on mouseover.
             var labelItems = [];
             var obstacleCircles = [];
 
@@ -1588,11 +1666,18 @@ function traceMap() {
                 var isActiveL = isFocalL || isAnchorL;
                 var spotNodeL = (GexfJS.params.locusSpotlightActive && GexfJS.params.locusNodeSpotlight) ? GexfJS.params.locusNodeSpotlight[nd.id] : null;
                 var isSpotL = Boolean(spotNodeL && (spotNodeL.hasEvent || spotNodeL.hasRef));
-                var shouldGreyL = isCentral ? false : (GexfJS.params.locusSpotlightActive
-                    ? !isSpotL
-                    : (isFadeMode && !nd.isTag && !isActiveL));
+                var specNodeL = (hasSpecialtyMarkers && GexfJS.params.specialtyNodeMarkers) ? GexfJS.params.specialtyNodeMarkers[nd.id] : null;
+                var isSpecL = Boolean(specNodeL && specNodeL.colors && specNodeL.colors.length > 0);
+                var isImportantL = isActiveL || isSpecL;
 
-                if (!shouldGreyL || !isFadeMode) {
+                // Persistent (hover-invariant) foreground/background state for deterministic layout
+                var layoutShouldGrey = GexfJS.params.locusSpotlightActive
+                    ? (!isSpotL && !isSpecL)
+                    : (specFadeOnly
+                        ? !isSpecL
+                        : (hasActiveNodes && !isImportantL));
+
+                if (!layoutShouldGrey || (!hasActiveNodes && !specFadeOnly)) {
                     obstacleCircles.push({
                         idx: nIdx,
                         x: nd.coords.real.x,
@@ -1601,41 +1686,44 @@ function traceMap() {
                     });
                 }
 
-                if (!isCentral && GexfJS.params.focusLocusActive && !isActiveL) {
+                var baseRawFs = nd.coords.real.r * _textSizeFactor;
+                var baseEligible = (!GexfJS.params.focusLocusActive || isImportantL) && (baseRawFs > _thresh);
+                if (!baseEligible && !isCentral) {
                     continue;
                 }
 
-                var rawFs;
-                if (isCentral) {
-                    rawFs = Math.max(_thresh + 2, nd.coords.real.r * _textSizeFactor) + 2;
-                } else {
-                    rawFs = nd.coords.real.r * _textSizeFactor;
-                    if (nd.isTag) {
-                        if (_centralNode != -1) {
-                            var distC = Math.sqrt(Math.pow(nd.coords.real.x - _dnc.coords.real.x, 2) + Math.pow(nd.coords.real.y - _dnc.coords.real.y, 2));
-                            if (distC > 80) rawFs = Math.max(_thresh + 2, rawFs);
-                        } else {
-                            rawFs = Math.max(_thresh + 2, rawFs);
-                        }
-                    }
-                }
+                // Visual state (may reflect hover highlight without altering layout coordinates)
+                var shouldGreyL = isCentral ? false : (GexfJS.params.locusSpotlightActive
+                    ? (!isSpotL && !isSpecL)
+                    : (specFadeOnly
+                        ? (!nd.isTag && !isSpecL)
+                        : (isFadeMode && !nd.isTag && !isImportantL)));
 
-                if (!isCentral && rawFs <= _thresh) continue;
+                var layoutFs = Math.max(9, Math.floor((baseEligible ? baseRawFs : (Math.max(_thresh + 2, baseRawFs) + 2)) * (GexfJS.params.labelSizeFactor || 1.0)));
+                var layoutBold = (isImportantL && !layoutShouldGrey);
+                var layoutFont = (layoutBold ? "bold " : "") + layoutFs + "px Arial";
 
-                var fSize = Math.max(9, Math.floor(rawFs * (GexfJS.params.labelSizeFactor || 1.0)));
-                var isBold = isCentral || (isActiveL && !shouldGreyL);
-                var fontSpec = (isBold ? "bold " : "") + fSize + "px Arial";
+                var drawFs = layoutFs;
+                var isBold = isCentral || (isImportantL && !shouldGreyL);
+                var drawFont = (isBold ? "bold " : "") + drawFs + "px Arial";
+
                 var textVal = nd.label || "";
-                if (!isCentral && isSpotL && spotNodeL.featTag) {
+                if (isSpotL && spotNodeL.featTag) {
                     textVal = textVal + " [" + spotNodeL.featTag + "]";
+                }
+                if (isSpecL && specNodeL.labelTag) {
+                    textVal = textVal + " [" + specNodeL.labelTag + "]";
                 }
 
                 var fillCol = _lblBaseCol;
                 var leaderCol = "rgba(100,116,139,0.52)";
-                var useStrongHalo = isCentral || (isActiveL && isFadeMode && !shouldGreyL);
+                var useStrongHalo = isCentral || (isImportantL && (isFadeMode || isSpecL) && !shouldGreyL);
                 if (isCentral) {
                     fillCol = _lblBaseCol;
-                    leaderCol = _lblOverride ? hexToRgbaStr(_lblOverride, 0.55) : "rgba(30,41,59,0.6)";
+                    leaderCol = _lblOverride ? hexToRgbaStr(_lblOverride, 0.85) : "rgba(30,41,59,0.85)";
+                } else if (isSpecL && !isActiveL && !shouldGreyL) {
+                    fillCol = _lblOverride || (specNodeL.primaryColor || "#b71c1c");
+                    leaderCol = hexToRgbaStr(fillCol, 0.58);
                 } else if (isActiveL && isFadeMode && !shouldGreyL) {
                     if (_lblOverride) {
                         fillCol = _lblOverride;
@@ -1646,14 +1734,18 @@ function traceMap() {
                     }
                     leaderCol = hexToRgbaStr(fillCol, 0.52);
                 } else if (shouldGreyL) {
-                    fillCol = isActiveL ? "rgba(110,120,130,0.65)" : "rgba(130,130,130,0.32)";
+                    fillCol = isImportantL ? "rgba(110,120,130,0.65)" : "rgba(130,130,130,0.32)";
                     leaderCol = "rgba(148,163,184,0.22)";
                 } else {
                     fillCol = ((nIdx != GexfJS.params.activeNode) && _tagsMisEnValeur.length && ((!nd.isTag) || (_centralNode != -1))) ? _lblDimCol : _lblBaseCol;
                     leaderCol = _lblOverride ? hexToRgbaStr(_lblOverride, 0.45) : "rgba(100,116,139,0.48)";
                 }
 
-                var pTier = isCentral ? 0 : ((isActiveL && !shouldGreyL) ? 1 : (!shouldGreyL ? 2 : 3));
+                // layoutTier is strictly hover-invariant for all baseEligible nodes (tiers 1..3);
+                // a hovered node that was below the zoom threshold gets tier 4 so it is placed last without perturbing existing labels.
+                var layoutTier = baseEligible ? ((isImportantL && !layoutShouldGrey) ? 1 : (!layoutShouldGrey ? 2 : 3)) : 4;
+                var drawTier = isCentral ? 0 : ((isImportantL && !shouldGreyL) ? 1 : (!shouldGreyL ? 2 : 3));
+
                 labelItems.push({
                     nodeIdx: nIdx,
                     id: String(nd.id),
@@ -1662,25 +1754,32 @@ function traceMap() {
                     r: nd.coords.real.r,
                     baseX: (nd.coords.base && typeof nd.coords.base.x === "number") ? nd.coords.base.x : nd.coords.real.x,
                     baseY: (nd.coords.base && typeof nd.coords.base.y === "number") ? nd.coords.base.y : nd.coords.real.y,
-                    fs: fSize,
-                    font: fontSpec,
+                    baseEligible: baseEligible,
+                    layoutShouldGrey: layoutShouldGrey,
+                    isCentral: isCentral,
+                    layoutFs: layoutFs,
+                    layoutFont: layoutFont,
+                    fs: drawFs,
+                    font: drawFont,
                     text: textVal,
                     fillStyle: fillCol,
                     leaderStyle: leaderCol,
                     shouldBeGreyLbl: shouldGreyL,
                     useStrongHalo: useStrongHalo,
                     haloOffset: isCentral ? 2 : 1,
-                    priorityTier: pTier,
+                    layoutTier: layoutTier,
+                    drawTier: drawTier,
                     dirParity: -1
                 });
             }
 
             // Assign deterministic alternating above/below parity along horizontal baseX order
-            // Separate foreground vs background so faded nodes don't disrupt active path alternation
+            // Use hover-invariant baseEligible and layoutShouldGrey so parity never flips on mouseover
             var fgList = [];
             var bgList = [];
             for (var li = 0; li < labelItems.length; li++) {
-                if (labelItems[li].shouldBeGreyLbl) bgList.push(labelItems[li]);
+                if (!labelItems[li].baseEligible) continue;
+                if (labelItems[li].layoutShouldGrey) bgList.push(labelItems[li]);
                 else fgList.push(labelItems[li]);
             }
             var sortByBaseX = function(a, b) {
@@ -1697,9 +1796,9 @@ function traceMap() {
                 bgList[bi].dirParity = (bi % 2 === 0) ? -1 : 1;
             }
 
-            // Sort by placement priority (central -> active -> normal -> faded, then left-to-right)
+            // Sort by hover-invariant placement priority (active -> normal -> faded -> hover-only tooltip, then left-to-right)
             labelItems.sort(function(a, b) {
-                if (a.priorityTier !== b.priorityTier) return a.priorityTier - b.priorityTier;
+                if (a.layoutTier !== b.layoutTier) return a.layoutTier - b.layoutTier;
                 return sortByBaseX(a, b);
             });
 
@@ -1728,9 +1827,9 @@ function traceMap() {
 
             for (var k = 0; k < labelItems.length; k++) {
                 var item = labelItems[k];
-                GexfJS.ctxGraphe.font = item.font;
+                GexfJS.ctxGraphe.font = item.layoutFont;
                 var tw = GexfJS.ctxGraphe.measureText(item.text).width;
-                var th = item.fs;
+                var th = item.layoutFs;
                 var nx = item.x;
                 var ny = item.y;
                 var nr = item.r;
@@ -1934,16 +2033,24 @@ function traceMap() {
                 }
             }
 
+            // Sort for rendering z-order (faded first, normal next, active next, hovered central node on top)
+            // without changing any computed (drawX, drawY) coordinates
+            var drawOrder = labelItems.slice();
+            drawOrder.sort(function(a, b) {
+                if (a.drawTier !== b.drawTier) return a.drawTier - b.drawTier;
+                return sortByBaseX(a, b);
+            });
+
             // Pass 1: Draw subtle leader lines behind all labels
             if (_showLeaders) {
                 GexfJS.ctxGraphe.save();
-                GexfJS.ctxGraphe.lineWidth = 1.1;
                 if (GexfJS.ctxGraphe.setLineDash) {
                     GexfJS.ctxGraphe.setLineDash([2, 2]);
                 }
-                for (var li1 = 0; li1 < labelItems.length; li1++) {
-                    var lItem = labelItems[li1];
+                for (var li1 = drawOrder.length - 1; li1 >= 0; li1--) {
+                    var lItem = drawOrder[li1];
                     if (!lItem.hasLeader) continue;
+                    GexfJS.ctxGraphe.lineWidth = lItem.isCentral ? 1.7 : 1.1;
                     GexfJS.ctxGraphe.strokeStyle = lItem.leaderStyle;
                     GexfJS.ctxGraphe.beginPath();
                     GexfJS.ctxGraphe.moveTo(lItem.leaderX1, lItem.leaderY1);
@@ -1953,21 +2060,21 @@ function traceMap() {
                 if (GexfJS.ctxGraphe.setLineDash) {
                     GexfJS.ctxGraphe.setLineDash([]);
                 }
-                for (var li2 = 0; li2 < labelItems.length; li2++) {
-                    var dItem = labelItems[li2];
+                for (var li2 = drawOrder.length - 1; li2 >= 0; li2--) {
+                    var dItem = drawOrder[li2];
                     if (!dItem.hasLeader) continue;
                     GexfJS.ctxGraphe.fillStyle = dItem.leaderStyle;
                     GexfJS.ctxGraphe.beginPath();
-                    GexfJS.ctxGraphe.arc(dItem.leaderX2, dItem.leaderY2, 1.5, 0, Math.PI * 2, true);
+                    GexfJS.ctxGraphe.arc(dItem.leaderX2, dItem.leaderY2, dItem.isCentral ? 2.1 : 1.5, 0, Math.PI * 2, true);
                     GexfJS.ctxGraphe.closePath();
                     GexfJS.ctxGraphe.fill();
                 }
                 GexfJS.ctxGraphe.restore();
             }
 
-            // Pass 2: Draw labels (faded first, active & central on top)
-            for (var drawIdx = labelItems.length - 1; drawIdx >= 0; drawIdx--) {
-                var dLbl = labelItems[drawIdx];
+            // Pass 2: Draw labels in stationary positions (faded first, active & central on top)
+            for (var drawIdx = drawOrder.length - 1; drawIdx >= 0; drawIdx--) {
+                var dLbl = drawOrder[drawIdx];
                 GexfJS.ctxGraphe.save();
                 GexfJS.ctxGraphe.font = dLbl.font;
                 GexfJS.ctxGraphe.textAlign = dLbl.textAlign;
@@ -1976,7 +2083,20 @@ function traceMap() {
                 if (dLbl.angle) {
                     GexfJS.ctxGraphe.translate(dLbl.drawX, dLbl.drawY);
                     GexfJS.ctxGraphe.rotate(dLbl.angle);
-                    if (dLbl.useStrongHalo || !dLbl.shouldBeGreyLbl) {
+                    if (dLbl.isCentral) {
+                        var cTwA = GexfJS.ctxGraphe.measureText(dLbl.text).width;
+                        var cPadXA = 4;
+                        var cPadYA = 2;
+                        var rxA = (dLbl.textAlign === "left") ? -cPadXA : (-cTwA - cPadXA);
+                        var ryA = -dLbl.fs * 0.5 - cPadYA;
+                        GexfJS.ctxGraphe.fillStyle = "rgba(255, 255, 255, 0.94)";
+                        GexfJS.ctxGraphe.strokeStyle = _lblOverride || (GexfJS.params.highlightColorOverride || "rgba(30, 41, 59, 0.75)");
+                        GexfJS.ctxGraphe.lineWidth = 1.25;
+                        GexfJS.ctxGraphe.beginPath();
+                        GexfJS.ctxGraphe.rect(rxA, ryA, cTwA + cPadXA * 2, dLbl.fs + cPadYA * 2);
+                        GexfJS.ctxGraphe.fill();
+                        GexfJS.ctxGraphe.stroke();
+                    } else if (dLbl.useStrongHalo || !dLbl.shouldBeGreyLbl) {
                         var hOff = dLbl.haloOffset;
                         GexfJS.ctxGraphe.fillStyle = _lblHaloCol;
                         GexfJS.ctxGraphe.fillText(dLbl.text, -hOff, 0);
@@ -1987,7 +2107,20 @@ function traceMap() {
                     GexfJS.ctxGraphe.fillStyle = dLbl.fillStyle;
                     GexfJS.ctxGraphe.fillText(dLbl.text, 0, 0);
                 } else {
-                    if (dLbl.useStrongHalo || !dLbl.shouldBeGreyLbl) {
+                    if (dLbl.isCentral) {
+                        var cTw = GexfJS.ctxGraphe.measureText(dLbl.text).width;
+                        var cPadX = 5;
+                        var cPadY = 2.5;
+                        var rx = dLbl.drawX - cTw * 0.5 - cPadX;
+                        var ry = dLbl.drawY - dLbl.fs * 0.5 - cPadY;
+                        GexfJS.ctxGraphe.fillStyle = "rgba(255, 255, 255, 0.94)";
+                        GexfJS.ctxGraphe.strokeStyle = _lblOverride || (GexfJS.params.highlightColorOverride || "rgba(30, 41, 59, 0.75)");
+                        GexfJS.ctxGraphe.lineWidth = 1.25;
+                        GexfJS.ctxGraphe.beginPath();
+                        GexfJS.ctxGraphe.rect(rx, ry, cTw + cPadX * 2, dLbl.fs + cPadY * 2);
+                        GexfJS.ctxGraphe.fill();
+                        GexfJS.ctxGraphe.stroke();
+                    } else if (dLbl.useStrongHalo || !dLbl.shouldBeGreyLbl) {
                         var hOff2 = dLbl.haloOffset;
                         GexfJS.ctxGraphe.fillStyle = _lblHaloCol;
                         GexfJS.ctxGraphe.fillText(dLbl.text, dLbl.drawX - hOff2, dLbl.drawY);
