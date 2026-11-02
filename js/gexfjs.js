@@ -811,6 +811,7 @@ function createGraph(data){
             var _edgeGenomes = {};
             var _edgeSequences = {};
             var _edgeBlocks = {};
+            var _edgeAttrs = {};
             var _e = $(this),
                 _sid = _e.attr("source"),
                 _six = GexfJS.graph.nodeIndexById.indexOf(_sid);
@@ -828,6 +829,9 @@ function createGraph(data){
 
             $.each( GexfJS._edge_attr_value, function(k, cur_attr){
                 _pattr=_e.find('attvalue[for="'+cur_attr+'"]').attr('value');
+                if (typeof _pattr !== "undefined" && _pattr !== null) {
+                    _edgeAttrs[cur_attr] = _pattr;
+                }
                 var isBlockAttr = (k === "block" || k === "block_id" || k === "block_name");
                 _p = ( _pattr ? (isBlockAttr ? _pattr.split(",") : _pattr.split(/[ ,]+/)) : _e.attr("path"));
                 
@@ -894,6 +898,7 @@ function createGraph(data){
                 genomes : _edgeGenomes,
                 sequences : _edgeSequences,
                 blocks : _edgeBlocks,
+                attributes : _edgeAttrs,
                 id : _eid
             });
             GexfJS.graph.edgeLookup[_eid]=GexfJS.graph.edgeList[GexfJS.graph.edgeList.length-1];
