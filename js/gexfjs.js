@@ -1475,74 +1475,9 @@ function traceMap() {
     var _lblBaseCol = _lblOverride || "rgb(0,0,0)";
     var _lblDimCol = _lblOverride ? hexToRgbaStr(_lblOverride, 0.7) : "rgba(60,60,60,0.7)";
     var _lblHaloCol = (_lblOverride && isLightHexColor(_lblOverride)) ? "rgba(15,23,42,0.88)" : "rgba(255,255,255,0.88)";
+    var _lblLayoutMode = GexfJS.params.labelLayoutMode || "stagger";
+    var _showLeaders = (GexfJS.params.showLabelLeaders !== false);
 
-    if (GexfJS.params.showNodeLabels !== false) {
-        for (var i in GexfJS.graph.nodeList) {
-            var _d = GexfJS.graph.nodeList[i];
-            if (_d.visible && _d.withinFrame) {
-                if (i != _centralNode) {
-                    var isFocalLbl = Boolean(GexfJS.params.activeNodes && GexfJS.params.activeNodes[_d.id]);
-                    var isAnchorLbl = Boolean(GexfJS.params.anchorNodes && GexfJS.params.anchorNodes[_d.id]);
-                    var isActiveLbl = isFocalLbl || isAnchorLbl;
-                    var spotNodeLbl = (GexfJS.params.locusSpotlightActive && GexfJS.params.locusNodeSpotlight) ? GexfJS.params.locusNodeSpotlight[_d.id] : null;
-                    var isSpotLbl = Boolean(spotNodeLbl && (spotNodeLbl.hasEvent || spotNodeLbl.hasRef));
-                    var shouldBeGreyLbl = GexfJS.params.locusSpotlightActive
-                        ? !isSpotLbl
-                        : ( isFadeMode && !_d.isTag && !isActiveLbl );
-
-                    // Suppress background node labels when focused on a single locus to avoid clutter
-                    if (GexfJS.params.focusLocusActive && !isActiveLbl) {
-                        continue;
-                    }
-
-                    var _fs = _d.coords.real.r * _textSizeFactor;
-                    if (_d.isTag) {
-                        if (_centralNode != -1) {
-                            var _dist = Math.sqrt( Math.pow( _d.coords.real.x - _dnc.coords.real.x, 2 ) + Math.pow( _d.coords.real.y - _dnc.coords.real.y, 2 ) );
-                            if (_dist > 80) {
-                                _fs = Math.max(_thresh + 2, _fs);
-                            }
-                        } else {
-                            _fs = Math.max(_thresh + 2, _fs);
-                        }
-                    }
-
-                    if (_fs > _thresh) {
-                        var finalFs = Math.max(9, Math.floor(_fs * (GexfJS.params.labelSizeFactor || 1.0)));
-                        GexfJS.ctxGraphe.font = ((isActiveLbl && !shouldBeGreyLbl) ? "bold " : "") + finalFs + "px Arial";
-                        GexfJS.ctxGraphe.textAlign = "center";
-                        GexfJS.ctxGraphe.textBaseline = "middle";
-
-                        var lblText = _d.label;
-                        if (isSpotLbl && spotNodeLbl.featTag) {
-                            lblText = _d.label + " [" + spotNodeLbl.featTag + "]";
-                        }
-
-                        if (isActiveLbl && isFadeMode && !shouldBeGreyLbl) {
-                            GexfJS.ctxGraphe.fillStyle = _lblHaloCol;
-                            GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x - 1, _d.coords.real.y);
-                            GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x + 1, _d.coords.real.y);
-                            GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x, _d.coords.real.y - 1);
-                            GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x, _d.coords.real.y + 1);
-                            if (_lblOverride) {
-                                GexfJS.ctxGraphe.fillStyle = _lblOverride;
-                            } else if (GexfJS.params.locusSpotlightActive && spotNodeLbl) {
-                                GexfJS.ctxGraphe.fillStyle = (spotNodeLbl.hasRef && !spotNodeLbl.hasEvent) ? "#01579b" : (GexfJS.params.highlightColorOverride || "#38006b");
-                            } else {
-                                GexfJS.ctxGraphe.fillStyle = (isAnchorLbl && !isFocalLbl) ? "#1b5e20" : (GexfJS.params.highlightColorOverride || "#38006b");
-                            }
-                        } else if (shouldBeGreyLbl) {
-                            GexfJS.ctxGraphe.fillStyle = isActiveLbl ? "rgba(110,120,130,0.65)" : "rgba(130,130,130,0.32)";
-                        } else {
-                            GexfJS.ctxGraphe.fillStyle = ( ( i != GexfJS.params.activeNode ) && _tagsMisEnValeur.length && ( ( !_d.isTag ) || ( _centralNode != -1 ) ) ? _lblDimCol : _lblBaseCol );
-                        }
-                        GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x, _d.coords.real.y);
-                    }
-                }
-            }
-        }
-    }
-    
     if (_centralNode != -1) {
         var defaultDncBase = GexfJS.params.muteDefaultColors ? "rgba(180,180,180,0.8)" : _dnc.color.base;
         GexfJS.ctxGraphe.fillStyle = defaultDncBase;
@@ -1551,24 +1486,515 @@ function traceMap() {
         GexfJS.ctxGraphe.closePath();
         GexfJS.ctxGraphe.fill();
         GexfJS.ctxGraphe.stroke();
-        
-        // --- NEW: Check if labels are globally enabled before drawing text ---
-        if (GexfJS.params.showNodeLabels !== false) {
-            var _fs = Math.max(_thresh + 2, _dnc.coords.real.r * _textSizeFactor) + 2;
-            
-            // --- NEW: Apply the size multiplier ---
-            var finalFs = _fs * (GexfJS.params.labelSizeFactor || 1.0);
-            GexfJS.ctxGraphe.font = "bold " + Math.floor( finalFs )+"px Arial";
-            
-            GexfJS.ctxGraphe.textAlign = "center";
-            GexfJS.ctxGraphe.textBaseline = "middle";
-            GexfJS.ctxGraphe.fillStyle = _lblHaloCol;
-            GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x - 2, _dnc.coords.real.y);
-            GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x + 2, _dnc.coords.real.y);
-            GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x, _dnc.coords.real.y - 2);
-            GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x, _dnc.coords.real.y + 2);
-            GexfJS.ctxGraphe.fillStyle = _lblBaseCol;
-            GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x, _dnc.coords.real.y);
+    }
+
+    if (GexfJS.params.showNodeLabels !== false) {
+        if (_lblLayoutMode === "standard") {
+            for (var i in GexfJS.graph.nodeList) {
+                var _d = GexfJS.graph.nodeList[i];
+                if (_d.visible && _d.withinFrame) {
+                    if (i != _centralNode) {
+                        var isFocalLbl = Boolean(GexfJS.params.activeNodes && GexfJS.params.activeNodes[_d.id]);
+                        var isAnchorLbl = Boolean(GexfJS.params.anchorNodes && GexfJS.params.anchorNodes[_d.id]);
+                        var isActiveLbl = isFocalLbl || isAnchorLbl;
+                        var spotNodeLbl = (GexfJS.params.locusSpotlightActive && GexfJS.params.locusNodeSpotlight) ? GexfJS.params.locusNodeSpotlight[_d.id] : null;
+                        var isSpotLbl = Boolean(spotNodeLbl && (spotNodeLbl.hasEvent || spotNodeLbl.hasRef));
+                        var shouldBeGreyLbl = GexfJS.params.locusSpotlightActive
+                            ? !isSpotLbl
+                            : ( isFadeMode && !_d.isTag && !isActiveLbl );
+
+                        // Suppress background node labels when focused on a single locus to avoid clutter
+                        if (GexfJS.params.focusLocusActive && !isActiveLbl) {
+                            continue;
+                        }
+
+                        var _fs = _d.coords.real.r * _textSizeFactor;
+                        if (_d.isTag) {
+                            if (_centralNode != -1) {
+                                var _dist = Math.sqrt( Math.pow( _d.coords.real.x - _dnc.coords.real.x, 2 ) + Math.pow( _d.coords.real.y - _dnc.coords.real.y, 2 ) );
+                                if (_dist > 80) {
+                                    _fs = Math.max(_thresh + 2, _fs);
+                                }
+                            } else {
+                                _fs = Math.max(_thresh + 2, _fs);
+                            }
+                        }
+
+                        if (_fs > _thresh) {
+                            var finalFs = Math.max(9, Math.floor(_fs * (GexfJS.params.labelSizeFactor || 1.0)));
+                            GexfJS.ctxGraphe.font = ((isActiveLbl && !shouldBeGreyLbl) ? "bold " : "") + finalFs + "px Arial";
+                            GexfJS.ctxGraphe.textAlign = "center";
+                            GexfJS.ctxGraphe.textBaseline = "middle";
+
+                            var lblText = _d.label;
+                            if (isSpotLbl && spotNodeLbl.featTag) {
+                                lblText = _d.label + " [" + spotNodeLbl.featTag + "]";
+                            }
+
+                            if (isActiveLbl && isFadeMode && !shouldBeGreyLbl) {
+                                GexfJS.ctxGraphe.fillStyle = _lblHaloCol;
+                                GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x - 1, _d.coords.real.y);
+                                GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x + 1, _d.coords.real.y);
+                                GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x, _d.coords.real.y - 1);
+                                GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x, _d.coords.real.y + 1);
+                                if (_lblOverride) {
+                                    GexfJS.ctxGraphe.fillStyle = _lblOverride;
+                                } else if (GexfJS.params.locusSpotlightActive && spotNodeLbl) {
+                                    GexfJS.ctxGraphe.fillStyle = (spotNodeLbl.hasRef && !spotNodeLbl.hasEvent) ? "#01579b" : (GexfJS.params.highlightColorOverride || "#38006b");
+                                } else {
+                                    GexfJS.ctxGraphe.fillStyle = (isAnchorLbl && !isFocalLbl) ? "#1b5e20" : (GexfJS.params.highlightColorOverride || "#38006b");
+                                }
+                            } else if (shouldBeGreyLbl) {
+                                GexfJS.ctxGraphe.fillStyle = isActiveLbl ? "rgba(110,120,130,0.65)" : "rgba(130,130,130,0.32)";
+                            } else {
+                                GexfJS.ctxGraphe.fillStyle = ( ( i != GexfJS.params.activeNode ) && _tagsMisEnValeur.length && ( ( !_d.isTag ) || ( _centralNode != -1 ) ) ? _lblDimCol : _lblBaseCol );
+                            }
+                            GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x, _d.coords.real.y);
+                        }
+                    }
+                }
+            }
+            if (_centralNode != -1) {
+                var _fsC = Math.max(_thresh + 2, _dnc.coords.real.r * _textSizeFactor) + 2;
+                var finalFsC = _fsC * (GexfJS.params.labelSizeFactor || 1.0);
+                GexfJS.ctxGraphe.font = "bold " + Math.floor( finalFsC ) + "px Arial";
+                GexfJS.ctxGraphe.textAlign = "center";
+                GexfJS.ctxGraphe.textBaseline = "middle";
+                GexfJS.ctxGraphe.fillStyle = _lblHaloCol;
+                GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x - 2, _dnc.coords.real.y);
+                GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x + 2, _dnc.coords.real.y);
+                GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x, _dnc.coords.real.y - 2);
+                GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x, _dnc.coords.real.y + 2);
+                GexfJS.ctxGraphe.fillStyle = _lblBaseCol;
+                GexfJS.ctxGraphe.fillText(_dnc.label, _dnc.coords.real.x, _dnc.coords.real.y);
+            }
+        } else {
+            // Non-overlapping label layouts: "stagger" (Vertical Stagger), "vertical" (-90 deg), or "angled" (-45 deg)
+            var labelItems = [];
+            var obstacleCircles = [];
+
+            for (var idxKey in GexfJS.graph.nodeList) {
+                var nd = GexfJS.graph.nodeList[idxKey];
+                if (!nd.visible || !nd.withinFrame) continue;
+                var nIdx = parseInt(idxKey, 10);
+                var isCentral = (nIdx == _centralNode);
+                var isFocalL = Boolean(GexfJS.params.activeNodes && GexfJS.params.activeNodes[nd.id]);
+                var isAnchorL = Boolean(GexfJS.params.anchorNodes && GexfJS.params.anchorNodes[nd.id]);
+                var isActiveL = isFocalL || isAnchorL;
+                var spotNodeL = (GexfJS.params.locusSpotlightActive && GexfJS.params.locusNodeSpotlight) ? GexfJS.params.locusNodeSpotlight[nd.id] : null;
+                var isSpotL = Boolean(spotNodeL && (spotNodeL.hasEvent || spotNodeL.hasRef));
+                var shouldGreyL = isCentral ? false : (GexfJS.params.locusSpotlightActive
+                    ? !isSpotL
+                    : (isFadeMode && !nd.isTag && !isActiveL));
+
+                if (!shouldGreyL || !isFadeMode) {
+                    obstacleCircles.push({
+                        idx: nIdx,
+                        x: nd.coords.real.x,
+                        y: nd.coords.real.y,
+                        r: nd.coords.real.r + 1.5
+                    });
+                }
+
+                if (!isCentral && GexfJS.params.focusLocusActive && !isActiveL) {
+                    continue;
+                }
+
+                var rawFs;
+                if (isCentral) {
+                    rawFs = Math.max(_thresh + 2, nd.coords.real.r * _textSizeFactor) + 2;
+                } else {
+                    rawFs = nd.coords.real.r * _textSizeFactor;
+                    if (nd.isTag) {
+                        if (_centralNode != -1) {
+                            var distC = Math.sqrt(Math.pow(nd.coords.real.x - _dnc.coords.real.x, 2) + Math.pow(nd.coords.real.y - _dnc.coords.real.y, 2));
+                            if (distC > 80) rawFs = Math.max(_thresh + 2, rawFs);
+                        } else {
+                            rawFs = Math.max(_thresh + 2, rawFs);
+                        }
+                    }
+                }
+
+                if (!isCentral && rawFs <= _thresh) continue;
+
+                var fSize = Math.max(9, Math.floor(rawFs * (GexfJS.params.labelSizeFactor || 1.0)));
+                var isBold = isCentral || (isActiveL && !shouldGreyL);
+                var fontSpec = (isBold ? "bold " : "") + fSize + "px Arial";
+                var textVal = nd.label || "";
+                if (!isCentral && isSpotL && spotNodeL.featTag) {
+                    textVal = textVal + " [" + spotNodeL.featTag + "]";
+                }
+
+                var fillCol = _lblBaseCol;
+                var leaderCol = "rgba(100,116,139,0.52)";
+                var useStrongHalo = isCentral || (isActiveL && isFadeMode && !shouldGreyL);
+                if (isCentral) {
+                    fillCol = _lblBaseCol;
+                    leaderCol = _lblOverride ? hexToRgbaStr(_lblOverride, 0.55) : "rgba(30,41,59,0.6)";
+                } else if (isActiveL && isFadeMode && !shouldGreyL) {
+                    if (_lblOverride) {
+                        fillCol = _lblOverride;
+                    } else if (GexfJS.params.locusSpotlightActive && spotNodeL) {
+                        fillCol = (spotNodeL.hasRef && !spotNodeL.hasEvent) ? "#01579b" : (GexfJS.params.highlightColorOverride || "#38006b");
+                    } else {
+                        fillCol = (isAnchorL && !isFocalL) ? "#1b5e20" : (GexfJS.params.highlightColorOverride || "#38006b");
+                    }
+                    leaderCol = hexToRgbaStr(fillCol, 0.52);
+                } else if (shouldGreyL) {
+                    fillCol = isActiveL ? "rgba(110,120,130,0.65)" : "rgba(130,130,130,0.32)";
+                    leaderCol = "rgba(148,163,184,0.22)";
+                } else {
+                    fillCol = ((nIdx != GexfJS.params.activeNode) && _tagsMisEnValeur.length && ((!nd.isTag) || (_centralNode != -1))) ? _lblDimCol : _lblBaseCol;
+                    leaderCol = _lblOverride ? hexToRgbaStr(_lblOverride, 0.45) : "rgba(100,116,139,0.48)";
+                }
+
+                var pTier = isCentral ? 0 : ((isActiveL && !shouldGreyL) ? 1 : (!shouldGreyL ? 2 : 3));
+                labelItems.push({
+                    nodeIdx: nIdx,
+                    id: String(nd.id),
+                    x: nd.coords.real.x,
+                    y: nd.coords.real.y,
+                    r: nd.coords.real.r,
+                    baseX: (nd.coords.base && typeof nd.coords.base.x === "number") ? nd.coords.base.x : nd.coords.real.x,
+                    baseY: (nd.coords.base && typeof nd.coords.base.y === "number") ? nd.coords.base.y : nd.coords.real.y,
+                    fs: fSize,
+                    font: fontSpec,
+                    text: textVal,
+                    fillStyle: fillCol,
+                    leaderStyle: leaderCol,
+                    shouldBeGreyLbl: shouldGreyL,
+                    useStrongHalo: useStrongHalo,
+                    haloOffset: isCentral ? 2 : 1,
+                    priorityTier: pTier,
+                    dirParity: -1
+                });
+            }
+
+            // Assign deterministic alternating above/below parity along horizontal baseX order
+            // Separate foreground vs background so faded nodes don't disrupt active path alternation
+            var fgList = [];
+            var bgList = [];
+            for (var li = 0; li < labelItems.length; li++) {
+                if (labelItems[li].shouldBeGreyLbl) bgList.push(labelItems[li]);
+                else fgList.push(labelItems[li]);
+            }
+            var sortByBaseX = function(a, b) {
+                if (a.baseX !== b.baseX) return a.baseX - b.baseX;
+                if (a.baseY !== b.baseY) return a.baseY - b.baseY;
+                return a.id.localeCompare(b.id);
+            };
+            fgList.sort(sortByBaseX);
+            bgList.sort(sortByBaseX);
+            for (var fi = 0; fi < fgList.length; fi++) {
+                fgList[fi].dirParity = (fi % 2 === 0) ? -1 : 1;
+            }
+            for (var bi = 0; bi < bgList.length; bi++) {
+                bgList[bi].dirParity = (bi % 2 === 0) ? -1 : 1;
+            }
+
+            // Sort by placement priority (central -> active -> normal -> faded, then left-to-right)
+            labelItems.sort(function(a, b) {
+                if (a.priorityTier !== b.priorityTier) return a.priorityTier - b.priorityTier;
+                return sortByBaseX(a, b);
+            });
+
+            var placedRects = [];
+            var rectsOverlap = function(r1, r2) {
+                return !(r1.x2 < r2.x1 || r1.x1 > r2.x2 || r1.y2 < r2.y1 || r1.y1 > r2.y2);
+            };
+            var rectHitsRects = function(box) {
+                for (var pi = 0; pi < placedRects.length; pi++) {
+                    if (rectsOverlap(box, placedRects[pi])) return true;
+                }
+                return false;
+            };
+            var rectHitsNodes = function(box, selfNodeIdx) {
+                for (var oi = 0; oi < obstacleCircles.length; oi++) {
+                    var oc = obstacleCircles[oi];
+                    if (oc.idx === selfNodeIdx) continue;
+                    var cx = Math.max(box.x1, Math.min(oc.x, box.x2));
+                    var cy = Math.max(box.y1, Math.min(oc.y, box.y2));
+                    var dx = oc.x - cx;
+                    var dy = oc.y - cy;
+                    if ((dx * dx + dy * dy) < (oc.r * oc.r)) return true;
+                }
+                return false;
+            };
+
+            for (var k = 0; k < labelItems.length; k++) {
+                var item = labelItems[k];
+                GexfJS.ctxGraphe.font = item.font;
+                var tw = GexfJS.ctxGraphe.measureText(item.text).width;
+                var th = item.fs;
+                var nx = item.x;
+                var ny = item.y;
+                var nr = item.r;
+
+                if (_lblLayoutMode === "vertical") {
+                    var vPadX = 2;
+                    var vPadY = 3;
+                    var vBaseGap = nr + 5;
+                    var vStepY = Math.min(Math.max(tw * 0.45, 16), 36);
+                    var chosenV = null;
+                    var fallbackV = null;
+                    var dxShifts = [0, -(th + 3), (th + 3)];
+
+                    for (var vt = 0; vt <= 8 && !chosenV; vt++) {
+                        for (var dxi = 0; dxi < dxShifts.length && !chosenV; dxi++) {
+                            var sSides = [item.dirParity, -item.dirParity];
+                            for (var vsi = 0; vsi < 2; vsi++) {
+                                var vSide = sSides[vsi];
+                                var candX = nx + dxShifts[dxi];
+                                var candY = ny + vSide * (vBaseGap + vt * vStepY);
+                                var vbox = (vSide < 0)
+                                    ? { x1: candX - th * 0.5 - vPadX, y1: candY - tw - vPadY, x2: candX + th * 0.5 + vPadX, y2: candY + vPadY }
+                                    : { x1: candX - th * 0.5 - vPadX, y1: candY - vPadY, x2: candX + th * 0.5 + vPadX, y2: candY + tw + vPadY };
+                                var hitLbl = rectHitsRects(vbox);
+                                if (!hitLbl) {
+                                    var hitNd = rectHitsNodes(vbox, item.nodeIdx);
+                                    var vCand = {
+                                        x: candX,
+                                        y: candY,
+                                        side: vSide,
+                                        boxes: [vbox],
+                                        textAlign: (vSide < 0) ? "left" : "right",
+                                        angle: -Math.PI / 2
+                                    };
+                                    if (!fallbackV) fallbackV = vCand;
+                                    if (!hitNd) {
+                                        chosenV = vCand;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    var finalV = chosenV || fallbackV || {
+                        x: nx,
+                        y: ny + item.dirParity * vBaseGap,
+                        side: item.dirParity,
+                        boxes: [],
+                        textAlign: (item.dirParity < 0) ? "left" : "right",
+                        angle: -Math.PI / 2
+                    };
+                    for (var vbi = 0; vbi < finalV.boxes.length; vbi++) placedRects.push(finalV.boxes[vbi]);
+                    item.drawX = finalV.x;
+                    item.drawY = finalV.y;
+                    item.textAlign = finalV.textAlign;
+                    item.angle = finalV.angle;
+                    var vDist = Math.sqrt(Math.pow(finalV.x - nx, 2) + Math.pow(finalV.y - ny, 2));
+                    item.hasLeader = (vDist > nr + 8);
+                    item.leaderX1 = nx;
+                    item.leaderY1 = ny + finalV.side * (nr + 1.5);
+                    item.leaderX2 = finalV.x;
+                    item.leaderY2 = finalV.y - finalV.side * 2;
+                } else if (_lblLayoutMode === "angled") {
+                    var aBaseGap = nr + 5;
+                    var aStepY = th + 7;
+                    var cos45 = 0.7071;
+                    var chosenA = null;
+                    var fallbackA = null;
+
+                    var buildAngledBoxes = function(ax, ay, aSide) {
+                        // Approximate the -45 deg rotated rectangle with 4 axis-aligned sample boxes along its spine
+                        var samples = [0.12, 0.38, 0.64, 0.88];
+                        var dirSign = (aSide < 0) ? 1 : -1;
+                        var halfBox = th * 0.52 + 1.5;
+                        var boxes = [];
+                        for (var si = 0; si < samples.length; si++) {
+                            var distAlong = tw * samples[si];
+                            var sx = ax + dirSign * distAlong * cos45;
+                            var sy = ay - dirSign * distAlong * cos45;
+                            boxes.push({
+                                x1: sx - halfBox,
+                                y1: sy - halfBox,
+                                x2: sx + halfBox,
+                                y2: sy + halfBox
+                            });
+                        }
+                        return boxes;
+                    };
+
+                    for (var at = 0; at <= 10 && !chosenA; at++) {
+                        var aSides = [item.dirParity, -item.dirParity];
+                        for (var asi = 0; asi < 2; asi++) {
+                            var aSide = aSides[asi];
+                            var candAX = nx;
+                            var candAY = ny + aSide * (aBaseGap + at * aStepY);
+                            var aboxes = buildAngledBoxes(candAX, candAY, aSide);
+                            var anyLblHit = false;
+                            for (var abi = 0; abi < aboxes.length; abi++) {
+                                if (rectHitsRects(aboxes[abi])) { anyLblHit = true; break; }
+                            }
+                            if (!anyLblHit) {
+                                var anyNdHit = false;
+                                for (var ani = 0; ani < aboxes.length; ani++) {
+                                    if (rectHitsNodes(aboxes[ani], item.nodeIdx)) { anyNdHit = true; break; }
+                                }
+                                var aCand = {
+                                    x: candAX,
+                                    y: candAY,
+                                    side: aSide,
+                                    boxes: aboxes,
+                                    textAlign: (aSide < 0) ? "left" : "right",
+                                    angle: -Math.PI / 4
+                                };
+                                if (!fallbackA) fallbackA = aCand;
+                                if (!anyNdHit) {
+                                    chosenA = aCand;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    var finalA = chosenA || fallbackA || {
+                        x: nx,
+                        y: ny + item.dirParity * aBaseGap,
+                        side: item.dirParity,
+                        boxes: [],
+                        textAlign: (item.dirParity < 0) ? "left" : "right",
+                        angle: -Math.PI / 4
+                    };
+                    for (var fabi = 0; fabi < finalA.boxes.length; fabi++) placedRects.push(finalA.boxes[fabi]);
+                    item.drawX = finalA.x;
+                    item.drawY = finalA.y;
+                    item.textAlign = finalA.textAlign;
+                    item.angle = finalA.angle;
+                    var aGap = Math.abs(finalA.y - ny) - nr;
+                    item.hasLeader = (aGap > 7);
+                    item.leaderX1 = nx;
+                    item.leaderY1 = ny + finalA.side * (nr + 1.5);
+                    item.leaderX2 = finalA.x;
+                    item.leaderY2 = finalA.y - finalA.side * 2;
+                } else {
+                    // Default non-overlapping mode: "stagger" (Vertical Stagger above/below path)
+                    var hw = tw * 0.5 + 4;
+                    var hh = th * 0.5 + 2;
+                    var sBaseGap = nr + th * 0.62 + 3;
+                    var sStepY = th + 5;
+                    var chosenS = null;
+                    var fallbackS = null;
+
+                    for (var st = 0; st <= 14 && !chosenS; st++) {
+                        var sSides = [item.dirParity, -item.dirParity];
+                        for (var ssi = 0; ssi < 2; ssi++) {
+                            var sSide = sSides[ssi];
+                            var candSX = nx;
+                            var candSY = ny + sSide * (sBaseGap + st * sStepY);
+                            var sbox = {
+                                x1: candSX - hw,
+                                y1: candSY - hh,
+                                x2: candSX + hw,
+                                y2: candSY + hh
+                            };
+                            if (!rectHitsRects(sbox)) {
+                                var hitSNd = rectHitsNodes(sbox, item.nodeIdx);
+                                var sCand = {
+                                    x: candSX,
+                                    y: candSY,
+                                    side: sSide,
+                                    box: sbox
+                                };
+                                if (!fallbackS) fallbackS = sCand;
+                                if (!hitSNd) {
+                                    chosenS = sCand;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    var finalS = chosenS || fallbackS;
+                    if (!finalS) {
+                        var fbY = ny + item.dirParity * sBaseGap;
+                        finalS = {
+                            x: nx,
+                            y: fbY,
+                            side: item.dirParity,
+                            box: { x1: nx - hw, y1: fbY - hh, x2: nx + hw, y2: fbY + hh }
+                        };
+                    }
+                    placedRects.push(finalS.box);
+                    item.drawX = finalS.x;
+                    item.drawY = finalS.y;
+                    item.textAlign = "center";
+                    item.angle = 0;
+                    var edgeStartY = ny + finalS.side * (nr + 1.5);
+                    var lblAttachY = finalS.y - finalS.side * (th * 0.55 + 1.5);
+                    var leaderLen = Math.abs(lblAttachY - edgeStartY);
+                    item.hasLeader = (leaderLen >= 3.5);
+                    item.leaderX1 = nx;
+                    item.leaderY1 = edgeStartY;
+                    item.leaderX2 = finalS.x;
+                    item.leaderY2 = lblAttachY;
+                }
+            }
+
+            // Pass 1: Draw subtle leader lines behind all labels
+            if (_showLeaders) {
+                GexfJS.ctxGraphe.save();
+                GexfJS.ctxGraphe.lineWidth = 1.1;
+                if (GexfJS.ctxGraphe.setLineDash) {
+                    GexfJS.ctxGraphe.setLineDash([2, 2]);
+                }
+                for (var li1 = 0; li1 < labelItems.length; li1++) {
+                    var lItem = labelItems[li1];
+                    if (!lItem.hasLeader) continue;
+                    GexfJS.ctxGraphe.strokeStyle = lItem.leaderStyle;
+                    GexfJS.ctxGraphe.beginPath();
+                    GexfJS.ctxGraphe.moveTo(lItem.leaderX1, lItem.leaderY1);
+                    GexfJS.ctxGraphe.lineTo(lItem.leaderX2, lItem.leaderY2);
+                    GexfJS.ctxGraphe.stroke();
+                }
+                if (GexfJS.ctxGraphe.setLineDash) {
+                    GexfJS.ctxGraphe.setLineDash([]);
+                }
+                for (var li2 = 0; li2 < labelItems.length; li2++) {
+                    var dItem = labelItems[li2];
+                    if (!dItem.hasLeader) continue;
+                    GexfJS.ctxGraphe.fillStyle = dItem.leaderStyle;
+                    GexfJS.ctxGraphe.beginPath();
+                    GexfJS.ctxGraphe.arc(dItem.leaderX2, dItem.leaderY2, 1.5, 0, Math.PI * 2, true);
+                    GexfJS.ctxGraphe.closePath();
+                    GexfJS.ctxGraphe.fill();
+                }
+                GexfJS.ctxGraphe.restore();
+            }
+
+            // Pass 2: Draw labels (faded first, active & central on top)
+            for (var drawIdx = labelItems.length - 1; drawIdx >= 0; drawIdx--) {
+                var dLbl = labelItems[drawIdx];
+                GexfJS.ctxGraphe.save();
+                GexfJS.ctxGraphe.font = dLbl.font;
+                GexfJS.ctxGraphe.textAlign = dLbl.textAlign;
+                GexfJS.ctxGraphe.textBaseline = "middle";
+
+                if (dLbl.angle) {
+                    GexfJS.ctxGraphe.translate(dLbl.drawX, dLbl.drawY);
+                    GexfJS.ctxGraphe.rotate(dLbl.angle);
+                    if (dLbl.useStrongHalo || !dLbl.shouldBeGreyLbl) {
+                        var hOff = dLbl.haloOffset;
+                        GexfJS.ctxGraphe.fillStyle = _lblHaloCol;
+                        GexfJS.ctxGraphe.fillText(dLbl.text, -hOff, 0);
+                        GexfJS.ctxGraphe.fillText(dLbl.text, hOff, 0);
+                        GexfJS.ctxGraphe.fillText(dLbl.text, 0, -hOff);
+                        GexfJS.ctxGraphe.fillText(dLbl.text, 0, hOff);
+                    }
+                    GexfJS.ctxGraphe.fillStyle = dLbl.fillStyle;
+                    GexfJS.ctxGraphe.fillText(dLbl.text, 0, 0);
+                } else {
+                    if (dLbl.useStrongHalo || !dLbl.shouldBeGreyLbl) {
+                        var hOff2 = dLbl.haloOffset;
+                        GexfJS.ctxGraphe.fillStyle = _lblHaloCol;
+                        GexfJS.ctxGraphe.fillText(dLbl.text, dLbl.drawX - hOff2, dLbl.drawY);
+                        GexfJS.ctxGraphe.fillText(dLbl.text, dLbl.drawX + hOff2, dLbl.drawY);
+                        GexfJS.ctxGraphe.fillText(dLbl.text, dLbl.drawX, dLbl.drawY - hOff2);
+                        GexfJS.ctxGraphe.fillText(dLbl.text, dLbl.drawX, dLbl.drawY + hOff2);
+                    }
+                    GexfJS.ctxGraphe.fillStyle = dLbl.fillStyle;
+                    GexfJS.ctxGraphe.fillText(dLbl.text, dLbl.drawX, dLbl.drawY);
+                }
+                GexfJS.ctxGraphe.restore();
+            }
         }
     }
 
