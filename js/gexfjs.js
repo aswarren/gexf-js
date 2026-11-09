@@ -893,6 +893,7 @@ function createGraph(data){
                 target : _tix,
                 width : Math.max( _minEW, Math.min( _maxEW, ( _w || 1 ) ) ) * _echelle,
                 weight : parseFloat(_w || 0),
+                rgb : { r : _r, g : _g, b : _b },
                 color : "rgba(" + _r + "," + _g + "," + _b + ",.7)",
                 path : pathList,
                 genomes : _edgeGenomes,
@@ -1234,12 +1235,17 @@ function traceMap() {
                 }
                 else {
                     // 3. Not highlighted (either neighbor hover or background)
+                    var _useHeatmapEdges = Boolean(GexfJS.params.heatmapEdges && !GexfJS.params.muteDefaultColors);
                     var baseEdgeColor = _edgeOverride
                         ? hexToRgbaStr(_edgeOverride, 0.85)
                         : (GexfJS.params.muteDefaultColors ? "rgba(180,180,180,0.5)" : _d.color);
                     var bgEdgeColor = _edgeOverride
                         ? hexToRgbaStr(_edgeOverride, GexfJS.params.path_active ? 0.22 : 0.55)
-                        : "rgba(110,118,129,0.22)";
+                        : (_useHeatmapEdges
+                            ? (GexfJS.params.path_active
+                                ? "rgba(110,118,129,0.22)"
+                                : "rgba(" + _d.rgb.r + "," + _d.rgb.g + "," + _d.rgb.b + ",0.65)")
+                            : "rgba(110,118,129,0.22)");
                     var isNeighborHover = Boolean(_isLinked && !GexfJS.params.path_active);
                     _color = isNeighborHover ? baseEdgeColor : bgEdgeColor;
                     _lineW = isNeighborHover ? Math.max(1.6, _baseEdgeW * 1.5) : _baseEdgeW;
