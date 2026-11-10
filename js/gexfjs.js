@@ -1617,12 +1617,15 @@ function traceMap() {
                                 lblText = lblText + " [" + specLblObj.labelTag + "]";
                             }
 
+                            var hasCenterBadgeStd = Boolean(GexfJS.params.cnvNodeBadges && GexfJS.params.cnvNodeBadges[_d.id]);
+                            var stdLblY = hasCenterBadgeStd ? (_d.coords.real.y + _d.coords.real.r + finalFs * 0.65 + 2) : _d.coords.real.y;
+
                             if ((isActiveLbl || isSpecLbl) && isFadeMode && !shouldBeGreyLbl) {
                                 GexfJS.ctxGraphe.fillStyle = _lblHaloCol;
-                                GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x - 1, _d.coords.real.y);
-                                GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x + 1, _d.coords.real.y);
-                                GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x, _d.coords.real.y - 1);
-                                GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x, _d.coords.real.y + 1);
+                                GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x - 1, stdLblY);
+                                GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x + 1, stdLblY);
+                                GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x, stdLblY - 1);
+                                GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x, stdLblY + 1);
                                 if (_lblOverride) {
                                     GexfJS.ctxGraphe.fillStyle = _lblOverride;
                                 } else if (isSpecLbl && !isActiveLbl) {
@@ -1637,7 +1640,7 @@ function traceMap() {
                             } else {
                                 GexfJS.ctxGraphe.fillStyle = ( ( i != GexfJS.params.activeNode ) && _tagsMisEnValeur.length && ( ( !_d.isTag ) || ( _centralNode != -1 ) ) ? _lblDimCol : _lblBaseCol );
                             }
-                            GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x, _d.coords.real.y);
+                            GexfJS.ctxGraphe.fillText(lblText, _d.coords.real.x, stdLblY);
                         }
                     }
                 }
@@ -2140,6 +2143,35 @@ function traceMap() {
                 GexfJS.ctxGraphe.restore();
             }
         }
+    }
+
+    // Draw CNV paralog copy identifiers (e.g. "A1", "A2", "B1") centered inside marked nodes
+    if (GexfJS.params.cnvNodeBadges && !jQuery.isEmptyObject(GexfJS.params.cnvNodeBadges)) {
+        GexfJS.ctxGraphe.save();
+        GexfJS.ctxGraphe.textAlign = "center";
+        GexfJS.ctxGraphe.textBaseline = "middle";
+        GexfJS.ctxGraphe.lineJoin = "round";
+        for (var cbIdx in GexfJS.graph.nodeList) {
+            var cbNode = GexfJS.graph.nodeList[cbIdx];
+            if (!cbNode || !cbNode.visible || !cbNode.withinFrame || !cbNode.coords || !cbNode.coords.real) continue;
+            var badgeStr = GexfJS.params.cnvNodeBadges[cbNode.id];
+            if (!badgeStr) continue;
+            var cbR = cbNode.coords.real.r;
+            if (cbR < 2.8) continue;
+
+            var cbSpot = (GexfJS.params.locusSpotlightActive && GexfJS.params.locusNodeSpotlight) ? GexfJS.params.locusNodeSpotlight[cbNode.id] : null;
+            var cbIsSpot = Boolean(cbSpot && (cbSpot.hasEvent || cbSpot.hasRef));
+            var cbDimmed = Boolean(GexfJS.params.locusSpotlightActive && !cbIsSpot && parseInt(cbIdx, 10) !== _centralNode);
+
+            var cbFs = Math.max(8, Math.min(13, Math.round(cbR * 0.96)));
+            GexfJS.ctxGraphe.font = "bold " + cbFs + "px Arial";
+            GexfJS.ctxGraphe.lineWidth = cbDimmed ? 2.2 : 3.0;
+            GexfJS.ctxGraphe.strokeStyle = cbDimmed ? "rgba(51, 65, 85, 0.78)" : "rgba(28, 7, 50, 0.94)";
+            GexfJS.ctxGraphe.strokeText(badgeStr, cbNode.coords.real.x, cbNode.coords.real.y + 0.5);
+            GexfJS.ctxGraphe.fillStyle = cbDimmed ? "rgba(241, 245, 249, 0.88)" : "#ffffff";
+            GexfJS.ctxGraphe.fillText(badgeStr, cbNode.coords.real.x, cbNode.coords.real.y + 0.5);
+        }
+        GexfJS.ctxGraphe.restore();
     }
 
     // Draw live rubber-band selection box if active
